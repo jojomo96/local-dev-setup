@@ -2,18 +2,20 @@
 
 .PHONY: setup install uninstall clean
 
+SCRIPTS_DIR := ./scripts
+
 # Default target
 setup: install
 
 install:
 	@echo "🚀 Starting setup..."
-	@chmod +x setup.sh
-	@./scripts/setup.sh
+	@chmod +x $(SCRIPTS_DIR)/setup-mise.sh
+	@$(SCRIPTS_DIR)/setup-mise.sh
 
 uninstall:
 	@echo "🗑️  Uninstalling mise and cleaning configs..."
-	@chmod +x uninstall.sh
-	@./scripts/uninstall.sh
+	@chmod +x $(SCRIPTS_DIR)/uninstall-mise.sh
+	@$(SCRIPTS_DIR)/uninstall-mise.sh
 
 # 'clean' is a common alias for uninstall/cleanup
 clean: uninstall
