@@ -1,6 +1,6 @@
 # Makefile
 
-.PHONY: setup install uninstall clean
+.PHONY: setup install uninstall clean verify
 
 SCRIPTS_DIR := ./scripts
 
@@ -19,3 +19,8 @@ uninstall:
 
 # 'clean' is a common alias for uninstall/cleanup
 clean: uninstall
+
+verify:
+	@echo "🔎 Verifying mise installation..."
+	@chmod +x $(SCRIPTS_DIR)/verify-mise.sh
+	@$(SCRIPTS_DIR)/verify-mise.sh
