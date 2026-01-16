@@ -5,13 +5,13 @@ set -e  # Exit immediately if a command fails
 MISE_BIN="$HOME/.local/bin/mise"
 
 # --- 1. Install mise (Idempotent) ---
-echo "🔍 Checking for mise..."
+echo "Checking for mise..."
 if [ ! -f "$MISE_BIN" ]; then
-    echo "📦 Installing mise..."
+    echo "Installing mise..."
     curl https://mise.run | sh
-    echo "✅ mise installed to $MISE_BIN"
+    echo "mise installed to $MISE_BIN"
 else
-    echo "✅ mise is already installed."
+    echo "mise is already installed."
 fi
 
 # --- 2. Helper Function to Update Configs ---
@@ -21,7 +21,7 @@ update_shell_config() {
     local activate_cmd="eval \"\$($MISE_BIN activate $shell_type)\""
 
     if [ -f "$config_file" ]; then
-        echo "📝 Checking $config_file..."
+        echo "Checking $config_file..."
 
         # Check if the file already contains the activation command
         if grep -Fq "$activate_cmd" "$config_file"; then
@@ -30,7 +30,7 @@ update_shell_config() {
             # --- BACKUP STEP ---
             local backup_file="${config_file}.pre-mise"
             cp "$config_file" "$backup_file"
-            echo "   - 🛡️  Backup created: $backup_file"
+            echo "   - Backup created: $backup_file"
 
             # Append the hook
             echo "   - Adding mise hook to $config_file..."
@@ -47,8 +47,8 @@ update_shell_config "$HOME/.zshrc" "zsh"
 
 # --- 4. Install Tools ---
 if [ -f "./mise.toml" ]; then
-    echo "⬇️  Installing tools from ./mise.toml..."
+    echo "Installing tools from ./mise.toml..."
     "$MISE_BIN" install
 fi
 
-echo "🎉 Setup complete! Restart your terminal."
+echo "Setup complete! Restart your terminal."

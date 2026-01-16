@@ -7,7 +7,7 @@ MISE_DATA_DIR="$HOME/.local/share/mise"
 MISE_CONFIG_DIR="$HOME/.config/mise"
 
 # --- 1. Remove mise Binaries and Data ---
-echo "🔍 Removing mise binaries and data..."
+echo "Removing mise binaries and data..."
 
 if [ -f "$MISE_BIN" ]; then
     rm "$MISE_BIN"
@@ -35,7 +35,7 @@ clean_shell_config() {
 
     if [ -f "$config_file" ]; then
         if grep -q "$pattern" "$config_file"; then
-            echo "🧹 Cleaning $config_file..."
+            echo "Cleaning $config_file..."
 
             # Create a backup just in case (.bak)
             cp "$config_file" "${config_file}.bak"
@@ -59,4 +59,4 @@ clean_shell_config "$HOME/.bashrc"
 clean_shell_config "$HOME/.bash_profile"
 clean_shell_config "$HOME/.zshrc"
 
-echo "✅ Uninstall complete. (Backups of config files created as .bak)"
+echo "Uninstall complete. (Backups of config files created as .bak)"

@@ -6,19 +6,19 @@ set -euo pipefail
 
 DEFAULT_MISE_BIN="$HOME/.local/bin/mise"
 
-echo "🔎 Verifying mise installation..."
+echo "Verifying mise installation..."
 
 if command -v mise >/dev/null 2>&1; then
   MISE_PATH="$(command -v mise)"
-  echo "✅ mise is installed: ${MISE_PATH}"
+  echo "mise is installed: ${MISE_PATH}"
   exit 0
 fi
 
 if [ -x "$DEFAULT_MISE_BIN" ]; then
-  echo "✅ mise is installed: ${DEFAULT_MISE_BIN}"
+  echo "mise is installed: ${DEFAULT_MISE_BIN}"
   exit 0
 fi
 
-echo "❌ mise is not installed."
-echo "   Run: make install"
+echo "mise is not installed."
+echo "Run: make install"
 exit 1
