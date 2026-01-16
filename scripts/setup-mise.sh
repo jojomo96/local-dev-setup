@@ -55,4 +55,8 @@ if [ -f "./mise.toml" ]; then
     "$MISE_BIN" install
 fi
 
-echo "${GREEN}Setup complete! Restart your terminal.${RESET}"
+# --- 5. Verify ---
+echo "${WHITE}Running verification...${RESET}"
+"$(dirname "$0")/verify-mise.sh"
+
+echo "${GREEN}Setup complete! Please restart your terminal to apply changes.${RESET}"
