@@ -1,10 +1,4 @@
-# Makefile
-
-# Define colors
-GREEN  := $(shell tput -Txterm setaf 2)
-YELLOW := $(shell tput -Txterm setaf 3)
-WHITE  := $(shell tput -Txterm setaf 7)
-RESET  := $(shell tput -Txterm sgr0)
+include ./scripts/colors.mk
 
 .PHONY: setup install uninstall clean verify
 
@@ -27,6 +21,5 @@ uninstall:
 clean: uninstall
 
 verify:
-	@echo "$(WHITE)Verifying mise installation...$(RESET)"
 	@chmod +x $(SCRIPTS_DIR)/verify-mise.sh
 	@$(SCRIPTS_DIR)/verify-mise.sh
