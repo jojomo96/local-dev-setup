@@ -1,0 +1,10 @@
+# shell-config.list
+# Add lines here that should be added to .zshrc / .bashrc automatically.
+# The setup script will safely append them if they are missing.
+
+# --- Stackit Aliases ---
+alias stackit="stackit-cli"
+
+# --- Other Shortcuts ---
+# alias k="kubectl"
+# export EDITOR="code --wait"
