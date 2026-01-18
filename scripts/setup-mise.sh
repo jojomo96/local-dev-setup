@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e  # Exit immediately if a command fails
 
-# Load shared helpers (colors, etc.)
+# Load shared helpers
 # shellcheck source=./common.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
@@ -26,17 +26,13 @@ update_shell_config() {
 
     if [ -f "$config_file" ]; then
         echo "${WHITE}Checking $config_file...${RESET}"
-
-        # Check if the file already contains the activation command
         if grep -Fq "$activate_cmd" "$config_file"; then
-            echo "${YELLOW}   - Hook already present. Skipping.${RESET}"
+            echo "${GREEN}   - Hook already present. Skipping.${RESET}"
         else
-            # --- BACKUP STEP ---
             local backup_file="${config_file}.pre-mise"
             cp "$config_file" "$backup_file"
             echo "${YELLOW}   - Backup created: $backup_file${RESET}"
 
-            # Append the hook
             echo "${WHITE}   - Adding mise hook to $config_file...${RESET}"
             echo "" >> "$config_file"
             echo "$activate_cmd" >> "$config_file"
@@ -49,14 +45,23 @@ update_shell_config "$HOME/.bashrc" "bash"
 update_shell_config "$HOME/.bash_profile" "bash"
 update_shell_config "$HOME/.zshrc" "zsh"
 
-# --- 4. Install Tools ---
+# --- 4. Install Tools from Repo Config ---
 if [ -f "./mise.toml" ]; then
-    echo "${WHITE}Installing tools from ./mise.toml...${RESET}"
+    echo "${WHITE}Found mise.toml. Installing tools...${RESET}"
+
+    # Install standard tools (Terraform, kubectl, uv, etc.)
     "$MISE_BIN" install
+
+    # Run the custom task to install uv tools from the list file
+    echo "${WHITE}Installing uv tools from uv-tools.list...${RESET}"
+    "$MISE_BIN" run install-uv-tools
+else
+    echo "${YELLOW}WARNING: No mise.toml found in current directory.${RESET}"
+    echo "${YELLOW}Please create one or pull the repository correctly.${RESET}"
 fi
 
 # --- 5. Verify ---
 echo "${WHITE}Running verification...${RESET}"
 "$(dirname "$0")/verify-mise.sh"
 
-echo "${GREEN}Setup complete! Please restart your terminal to apply changes.${RESET}"
+echo "${GREEN}Setup complete! Please restart your terminal.${RESET}"

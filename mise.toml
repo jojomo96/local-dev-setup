@@ -1,0 +1,67 @@
+# mise.toml
+
+[tools]
+# --- ☁️ Stackit & Cloud Essentials ---
+# The Official Stackit CLI (Installed via Go backend)
+"go:github.com/stackitcloud/stackit-cli" = "latest"
+awscli = "latest"       # Required for S3/Object Storage interaction
+
+# --- 🏗️ Infrastructure as Code ---
+terraform = "latest"
+tflint = "latest"       # Linter
+terraform-docs = "latest"
+
+# --- ☸️ Kubernetes (SKE) ---
+kubectl = "latest"
+helm = "latest"
+k9s = "latest"          # Terminal UI for K8s
+krew = "latest"         # K8s plugin manager
+
+# --- 🛠️ Core Utilities ---
+jq = "latest"
+yq = "latest"
+go = "latest"           # Required for Stackit CLI updates
+python = "3.12"
+uv = "latest"
+
+# --- ⚡ Custom Tasks ---
+
+[tasks.install-uv-tools]
+description = "Installs tools defined in uv-tools.list"
+run = """
+#!/bin/bash
+# Check if list file exists
+if [ ! -f "uv-tools.list" ]; then
+    echo "No uv-tools.list found. Skipping."
+    exit 0
+fi
+
+# Read the file line by line
+while IFS= read -r tool_spec || [ -n "$tool_spec" ]; do
+    # 1. Skip comments and empty lines
+    [[ "$tool_spec" =~ ^#.* ]] && continue
+    [[ -z "$tool_spec" ]] && continue
+
+    # 2. Trim whitespace
+    tool_spec=$(echo "$tool_spec" | xargs)
+
+    # 3. Install using uv (force ensures we get the latest/reinstall)
+    echo "Installing uv tool: $tool_spec"
+    uv tool install --force $tool_spec
+done < uv-tools.list
+"""
+
+[tasks.update-all]
+description = "Updates mise, configured tools, and uv tools"
+run = """
+#!/bin/bash
+echo "1. Updating mise..."
+mise self-update -y
+
+echo "2. Updating mise tools..."
+mise upgrade -y
+
+echo "3. Updating uv tools..."
+# Re-running the install task with --force acts as an updater
+mise run install-uv-tools
+"""

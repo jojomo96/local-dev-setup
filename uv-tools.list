@@ -1,0 +1,16 @@
+# uv-tools.list
+# Add python-based CLI tools here.
+# You can include flags like --with for plugins.
+
+# --- Infrastructure ---
+ansible-core --with ansible
+
+# --- Python Dev Tools ---
+ruff
+black
+mypy
+pre-commit
+
+# --- Utilities ---
+httpie
+ipython

@@ -1,6 +1,6 @@
 include ./scripts/colors.mk
 
-.PHONY: setup install uninstall clean verify
+.PHONY: setup install uninstall clean verify update
 
 SCRIPTS_DIR := ./scripts
 
@@ -12,12 +12,17 @@ install:
 	@chmod +x $(SCRIPTS_DIR)/setup-mise.sh
 	@$(SCRIPTS_DIR)/setup-mise.sh
 
+# Updates everything: mise binary, standard tools, and uv-managed tools
+update:
+	@echo "$(WHITE)Updating environment...$(RESET)"
+	@mise run update-all
+	@echo "$(GREEN)Update complete!$(RESET)"
+
 uninstall:
 	@echo "$(YELLOW)Uninstalling mise and cleaning configs...$(RESET)"
 	@chmod +x $(SCRIPTS_DIR)/uninstall-mise.sh
 	@$(SCRIPTS_DIR)/uninstall-mise.sh
 
-# 'clean' is a common alias for uninstall/cleanup
 clean: uninstall
 
 verify:
