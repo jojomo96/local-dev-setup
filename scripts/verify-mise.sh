@@ -73,6 +73,18 @@ check_config "$HOME/.zshrc"
 check_config "$HOME/.bashrc"
 check_config "$HOME/.bash_profile"
 
+# 4b. Detect common Oh My Zsh misconfiguration that breaks new shells
+# (This is not caused by this repo, but it's a frequent reason for zsh startup errors.)
+if [ -f "$HOME/.zshrc" ]; then
+  if grep -qE '^\s*source\s+\$ZSH/oh-my-zsh\.sh\s*$' "$HOME/.zshrc" && ! grep -qE '^\s*(export\s+)?ZSH=' "$HOME/.zshrc"; then
+    echo "${YELLOW}WARN: ~/.zshrc sources \$ZSH/oh-my-zsh.sh but ZSH is not set.${RESET}"
+    echo "${YELLOW}      Fix by adding before that line:${RESET}"
+    echo "${YELLOW}      export ZSH=\"\$HOME/.oh-my-zsh\"${RESET}"
+    echo "${YELLOW}      Or guard it:${RESET}"
+    echo "${YELLOW}      export ZSH=\"\${ZSH:-\$HOME/.oh-my-zsh}\"; [ -f \"\$ZSH/oh-my-zsh.sh\" ] && source \"\$ZSH/oh-my-zsh.sh\"${RESET}"
+  fi
+fi
+
 # 5. Verify global tool availability in a fresh interactive zsh from $HOME
 # This simulates what the user expects: tools work in arbitrary directories.
 if command -v zsh >/dev/null 2>&1; then

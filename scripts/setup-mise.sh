@@ -20,6 +20,10 @@ GLOBAL_MISE_CONFIG="$GLOBAL_MISE_DIR/config.toml"
 GLOBAL_BLOCK_START="# --- MANAGED BY mise-uv-test (START) ---"
 GLOBAL_BLOCK_END="# --- MANAGED BY mise-uv-test (END) ---"
 
+# Markers for the managed block
+BLOCK_START="# --- MANAGED BY MISE-SETUP (START) ---"
+BLOCK_END="# --- MANAGED BY MISE-SETUP (END) ---"
+
 # --- 1. Install mise (Idempotent) ---
 echo "${WHITE}Checking for mise...${RESET}"
 if [ ! -f "$MISE_BIN" ]; then
@@ -58,10 +62,19 @@ update_shell_config() {
 
         # --- A. CLEANUP STEP ---
         # 1. Remove the existing managed block (if any)
-        # 2. Remove legacy floating "mise activate" lines (from old version of script)
-        # We use sed to strip the block range, then grep -v to kill floating legacy lines
-        sed "/^$BLOCK_START$/,/^$BLOCK_END$/d" "$config_file" | \
-        grep -Fv "$MISE_BIN activate $shell_type" > "$tmp_file"
+        # 2. Remove any legacy floating "mise activate" lines and old PATH exports we previously injected
+        # 3. Remove a legacy snippet we previously appended without markers
+        if [ "$shell_type" == "fish" ]; then
+            sed "/^$BLOCK_START$/,/^$BLOCK_END$/d" "$config_file" | \
+            sed "/^# This block is auto-generated\. Edits will be overwritten\.$/,/^alias stackit=\"stackit-cli\"$/d" | \
+            grep -Fv "$MISE_BIN activate $shell_type" | \
+            grep -Fv "fish_add_path -g $HOME/.local/bin" > "$tmp_file"
+        else
+            sed "/^$BLOCK_START$/,/^$BLOCK_END$/d" "$config_file" | \
+            sed "/^# This block is auto-generated\. Edits will be overwritten\.$/,/^alias stackit=\"stackit-cli\"$/d" | \
+            grep -Fv "$MISE_BIN activate $shell_type" | \
+            grep -Fv "export PATH=\"$HOME/.local/bin:\$PATH\"" > "$tmp_file"
+        fi
 
         # --- B. GENERATE NEW BLOCK ---
         {
@@ -71,12 +84,12 @@ update_shell_config() {
             echo "# Ensure the mise install location is on PATH"
             if [ "$shell_type" == "fish" ]; then
                 echo "fish_add_path -g $HOME/.local/bin"
-                echo "# Activate mise for interactive shells"
-                echo "status --is-interactive; and $activate_cmd"
+                echo "# Activate mise for interactive shells (only if mise is installed)"
+                echo "status --is-interactive; and test -x $MISE_BIN; and $activate_cmd"
             else
                 echo "export PATH=\"$HOME/.local/bin:\$PATH\""
-                echo "# Activate mise for interactive shells"
-                echo "case \"\$-\" in *i*) $activate_cmd ;; esac"
+                echo "# Activate mise for interactive shells (only if mise is installed)"
+                echo "case \"\$-\" in *i*) [ -x \"$MISE_BIN\" ] && $activate_cmd ;; esac"
             fi
 
             # Inject Custom Lines from list

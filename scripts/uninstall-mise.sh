@@ -17,6 +17,19 @@ BLOCK_END="# --- MANAGED BY MISE-SETUP (END) ---"
 GLOBAL_BLOCK_START="# --- MANAGED BY mise-uv-test (START) ---"
 GLOBAL_BLOCK_END="# --- MANAGED BY mise-uv-test (END) ---"
 
+# --- 0. Best-effort: if we're running inside zsh, unregister any in-memory mise hooks ---
+# This prevents the current shell session from trying to call the removed mise binary
+# on the next prompt render.
+if [ -n "${ZSH_VERSION:-}" ]; then
+    # Remove any precmd hook entries referencing mise
+    # shellcheck disable=SC2016
+    precmd_functions=(${precmd_functions:#*_mise_*})
+    # Unset common hook functions if present
+    unset -f _mise_hook_precmd 2>/dev/null || true
+    unset -f _mise_hook_chpwd 2>/dev/null || true
+    unset -f _mise_hook_preexec 2>/dev/null || true
+fi
+
 # --- 1. Remove mise Binaries and Data ---
 echo "${YELLOW}Removing mise binaries and data...${RESET}"
 rm -f "$MISE_BIN"
@@ -49,13 +62,16 @@ clean_shell_config() {
         echo "${WHITE}Cleaning $config_file...${RESET}"
 
         # Check if either marker or legacy line exists
-        if grep -Fq "$BLOCK_START" "$config_file" || grep -Fq "mise activate" "$config_file"; then
+        if grep -Fq "$BLOCK_START" "$config_file" || grep -Fq "mise activate" "$config_file" || grep -Fq "$MISE_BIN activate" "$config_file"; then
             cp "$config_file" "${config_file}.bak"
 
             # 1. Remove the Managed Block
             # 2. Remove legacy floating lines (cleanup for old versions)
+            # 3. Remove any remaining eval lines that reference the exact binary path
             sed "/^$BLOCK_START$/,/^$BLOCK_END$/d" "$config_file" | \
-            grep -Fv "mise activate" > "${config_file}.tmp" && \
+            grep -Fv "mise activate" | \
+            grep -Fv "$MISE_BIN activate" | \
+            grep -Fv "$MISE_BIN\" activate" > "${config_file}.tmp" && \
             mv "${config_file}.tmp" "$config_file"
 
             echo "${GREEN}   - Removed mise configuration block.${RESET}"
@@ -71,4 +87,10 @@ clean_shell_config "$HOME/.bash_profile"
 clean_shell_config "$HOME/.zshrc"
 clean_shell_config "$HOME/.config/fish/config.fish"
 
+# Also clean common backups created by this repo's installer
+clean_shell_config "$HOME/.zshrc.bak"
+clean_shell_config "$HOME/.bashrc.bak"
+clean_shell_config "$HOME/.bash_profile.bak"
+
 echo "${GREEN}Uninstall complete.${RESET}"
+echo "${YELLOW}NOTE: If you ran uninstall from an already-open terminal, restart the shell/terminal to clear any previously loaded mise hooks.${RESET}"
