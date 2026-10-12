@@ -13,7 +13,8 @@ collections:
   # `defaults write` is blind and unconditional, osx_defaults reports changes.
   - name: community.general
 
-  # Provides the profile_tasks callback used in ansible.cfg.
+  # Optional: provides the profile_tasks callback (per-task timings), which is
+  # commented out in ansible.cfg by default. Harmless to install either way.
   - name: ansible.posix
 
 # NOTE: geerlingguy.mac is the usual recommendation for a Mac playbook, and its

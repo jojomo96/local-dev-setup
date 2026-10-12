@@ -1,0 +1,111 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# k9s: per-cluster colour skins and the context config that selects them.
+#
+# Two different strategies, because the files behave differently:
+#
+#   skins/*.yaml           symlinked — pure colour definitions, never change
+#                          by themselves, so the repo can own them outright.
+#
+#   clusters/<c>/<ctx>/     copied once, only if absent. These hold the
+#   config.yaml             `skin:` mapping AND your curated `favorites`
+#                           namespace list — but k9s also writes the active
+#                           namespace and current view back into them as you
+#                           work. Symlinking would dirty the git tree on every
+#                           k9s session, so we seed the file and then let k9s
+#                           own it.
+#
+# The root config.yaml is deliberately NOT managed: it's all k9s defaults and
+# it hardcodes an absolute screenDumpDir path that wouldn't survive a move.
+#
+# NOTE ON THE PATH: on macOS k9s uses Go's user-config dir, which is
+# ~/Library/Application Support/k9s — with a space. Everything here goes
+# through Ansible modules rather than shell, so the space needs no escaping.
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Ensure the k9s skins directory exists
+  ansible.builtin.file:
+    path: "{{ k9s_config_dir }}/skins"
+    state: directory
+    mode: "0755"
+
+# ── Safety check before we touch anything ───────────────────────────────────
+- name: Find skins already on this machine
+  ansible.builtin.find:
+    paths: "{{ k9s_config_dir }}/skins"
+    patterns: ["*.yaml", "*.yml"]
+    file_type: file
+  register: k9s_live_skins
+  changed_when: false
+
+- name: Find skins stored in this repo
+  ansible.builtin.find:
+    paths: "{{ playbook_dir }}/dotfiles/k9s/skins"
+    patterns: ["*.yaml", "*.yml"]
+    file_type: file
+  register: k9s_repo_skins
+  changed_when: false
+
+- name: Warn about skins that exist on this machine but not in the repo
+  # Real files, not symlinks, that the repo doesn't know about. These would be
+  # left behind on a reset. Reported rather than moved automatically: silently
+  # relocating a user's config is worse than telling them about it.
+  ansible.builtin.debug:
+    msg:
+      - "These skins are on this machine but NOT in the repo:"
+      - "{{ k9s_live_skins.files | map(attribute='path') | map('basename') | list
+            | difference(k9s_repo_skins.files | map(attribute='path') | map('basename') | list) }}"
+      - "Move them in to have them survive a reset:"
+      - "  mv '{{ k9s_config_dir }}/skins/'*.y*ml {{ playbook_dir }}/dotfiles/k9s/skins/"
+      - "  then re-run: make k9s"
+  when: >-
+    k9s_live_skins.files | map(attribute='path') | map('basename') | list
+    | difference(k9s_repo_skins.files | map(attribute='path') | map('basename') | list)
+    | length > 0
+
+# ── Skins: symlink each file individually ───────────────────────────────────
+# Per-file rather than symlinking the whole directory, so an empty repo dir is
+# a harmless no-op instead of replacing your live skins with nothing.
+- name: Link k9s skins from the repo
+  ansible.builtin.file:
+    src: "{{ item }}"
+    dest: "{{ k9s_config_dir }}/skins/{{ item | basename }}"
+    state: link
+    force: true
+  loop: "{{ k9s_repo_skins.files | map(attribute='path') | list }}"
+  loop_control:
+    label: "{{ item | basename }}"
+
+# ── Per-context config: seed once, then leave alone ─────────────────────────
+- name: Check which context configs the repo provides
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/dotfiles/k9s/clusters/{{ item.cluster }}/{{ item.context }}/config.yaml"
+  loop: "{{ k9s_cluster_configs | default([]) }}"
+  loop_control:
+    label: "{{ item.cluster }}/{{ item.context }}"
+  register: k9s_repo_contexts
+  changed_when: false
+
+- name: Create context config directories
+  ansible.builtin.file:
+    path: "{{ k9s_config_dir }}/clusters/{{ item.item.cluster }}/{{ item.item.context }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ k9s_repo_contexts.results }}"
+  loop_control:
+    label: "{{ item.item.cluster }}/{{ item.item.context }}"
+  when: item.stat.exists
+
+- name: Seed k9s context configs (never overwrites an existing one)
+  # force=false is the whole point: this restores `skin:` and `favorites` on a
+  # fresh machine, and is a no-op forever after.
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/dotfiles/k9s/clusters/{{ item.item.cluster }}/{{ item.item.context }}/config.yaml"
+    dest: "{{ k9s_config_dir }}/clusters/{{ item.item.cluster }}/{{ item.item.context }}/config.yaml"
+    mode: "0644"
+    force: false
+    remote_src: true
+  loop: "{{ k9s_repo_contexts.results }}"
+  loop_control:
+    label: "{{ item.item.cluster }}/{{ item.item.context }}"
+  when: item.stat.exists

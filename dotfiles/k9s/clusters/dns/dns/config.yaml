@@ -1,0 +1,19 @@
+k9s:
+  cluster: dns
+  skin: red
+  namespace:
+    active: api-prd
+    lockFavorites: false
+    favorites:
+      - kube-system
+      - all
+      - external-dns
+      - prometheus-operator
+      - api-prd
+      - observability
+      - default
+  view:
+    active: apps/v1/deployments api-prd
+  featureGates:
+    nodeShell: false
+  proxy: null

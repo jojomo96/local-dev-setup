@@ -1,0 +1,20 @@
+k9s:
+  cluster: dns-nonprod
+  namespace:
+    active: checkly-exporter
+    lockFavorites: false
+    favorites:
+      - all
+      - api-dev
+      - cert-manager
+      - kube-system
+      - flux-system
+      - snyk-sync
+      - api-qa
+      - checkly-exporter
+      - rmq-exporter-dev
+  view:
+    active: apps/v1/deployments api-dev
+  featureGates:
+    nodeShell: false
+  proxy: null

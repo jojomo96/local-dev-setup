@@ -13,6 +13,7 @@ configure_homebrew: true
 configure_omz: true
 configure_dotfiles: true
 configure_mise: true
+configure_k9s: true
 configure_plugins: true
 configure_identity: true
 configure_macos: true
@@ -57,6 +58,20 @@ dotfile_links:
 omz_custom_plugins:
   - name: zsh-bat
     repo: https://github.com/fdellwing/zsh-bat.git
+
+# ── k9s skins and per-context config ────────────────────────────────────────
+# On macOS k9s lives in ~/Library/Application Support/k9s (Go's user-config
+# dir), not ~/.config/k9s. Note the space in the path.
+k9s_config_dir: "{{ ansible_env.HOME }}/Library/Application Support/k9s"
+
+# Contexts whose config.yaml should be seeded from the repo. That file carries
+# the `skin:` mapping (e.g. dns -> red) and your curated `favorites` namespace
+# list. It is copied only when absent, because k9s writes live state into it.
+k9s_cluster_configs:
+  - cluster: dns
+    context: dns
+  - cluster: dns-nonprod
+    context: dns-nonprod
 
 # ── kubectl plugins (krew) ──────────────────────────────────────────────────
 # oidc-login is not optional: it's what authenticates the OIDC kubeconfig

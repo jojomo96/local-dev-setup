@@ -64,6 +64,15 @@
       when: configure_mise | bool
       tags: [mise, tools]
 
+    # Config files only — needs nothing installed, so it runs alongside the
+    # other dotfiles rather than waiting on mise.
+    - name: k9s skins and context config
+      ansible.builtin.import_tasks: tasks/k9s.yml
+      when:
+        - configure_k9s | bool
+        - ansible_system == 'Darwin'
+      tags: [k9s, dotfiles]
+
     # Must follow mise: needs kubectl, krew, helm and pnpm to exist.
     - name: krew plugins, helm repos, pnpm globals
       ansible.builtin.import_tasks: tasks/k8s-plugins.yml

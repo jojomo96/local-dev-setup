@@ -1,0 +1,19 @@
+k9s:
+  body:
+    fgColor: white
+    bgColor: "#3f0000" # A deep, dark red background
+  prompt:
+    fgColor: white
+    bgColor: red       # Bright red command prompt
+  info:
+    fgColor: lightcoral
+    sectionColor: white
+  views:
+    charts:
+      bgColor: default
+    table:
+      fgColor: white
+      bgColor: transparent
+      header:
+        fgColor: white
+        bgColor: darkred

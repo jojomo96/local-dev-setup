@@ -14,8 +14,8 @@ ANSIBLE_GALAXY := $(shell command -v ansible-galaxy 2>/dev/null \
 ANSIBLE_VAULT := $(shell command -v ansible-vault 2>/dev/null \
 	|| echo $(BOOTSTRAP_VENV)/bin/ansible-vault)
 
-.PHONY: help bootstrap deps pin-deps check brew dotfiles mise identity macos \
-        doctor update capture lint test vault clean clean-venv
+.PHONY: help bootstrap deps pin-deps check brew dotfiles mise k9s plugins \
+        identity macos doctor update capture lint test vault clean clean-venv
 
 help:
 	@echo ""
@@ -34,7 +34,7 @@ help:
 	@echo "    make update       Update mise tools, uv tools and brew"
 	@echo ""
 	@echo "  $(BOLD)Single areas$(RESET) (playbook tags)"
-	@echo "    make brew dotfiles mise identity macos"
+	@echo "    make brew dotfiles mise k9s plugins identity macos"
 	@echo ""
 	@echo "  $(BOLD)Maintenance$(RESET)"
 	@echo "    make deps         Install Ansible collections"
@@ -76,6 +76,12 @@ mise:
 
 identity:
 	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags identity
+
+k9s:
+	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags k9s
+
+plugins:
+	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags plugins
 
 macos:
 	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags macos
