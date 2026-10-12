@@ -1,0 +1,74 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# Homebrew: install it, then reconcile the machine against the Brewfile.
+#
+# The Brewfile stays the source of truth rather than an Ansible variable list,
+# because `brew bundle --cleanup` gives allowlist semantics — it uninstalls
+# anything not declared. That is the property that keeps the old laptop's
+# accumulated junk off the new one, and no Ansible homebrew module expresses it.
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Locate the Homebrew prefix for this architecture
+  ansible.builtin.set_fact:
+    homebrew_prefix: "{{ '/opt/homebrew' if ansible_architecture == 'arm64' else '/usr/local' }}"
+
+- name: Check whether Homebrew is installed
+  ansible.builtin.stat:
+    path: "{{ homebrew_prefix }}/bin/brew"
+  register: brew_binary
+
+- name: Install Homebrew
+  # The official installer is idempotent but slow, so it only runs when brew
+  # is genuinely absent. NONINTERACTIVE stops it waiting on a keypress.
+  ansible.builtin.shell:
+    cmd: >-
+      NONINTERACTIVE=1 /bin/bash -c
+      "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  when: not brew_binary.stat.exists
+  changed_when: true
+
+- name: Verify the Brewfile exists
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/Brewfile"
+  register: brewfile
+
+- name: Fail early when the Brewfile is missing
+  ansible.builtin.fail:
+    msg: "No Brewfile at {{ playbook_dir }}/Brewfile — nothing to install."
+  when: not brewfile.stat.exists
+
+- name: Report what brew bundle would change
+  # `brew bundle check` is read-only, so it is safe in --check mode and gives
+  # useful output on a dry run instead of skipping silently.
+  ansible.builtin.command:
+    cmd: "{{ homebrew_prefix }}/bin/brew bundle check --file={{ playbook_dir }}/Brewfile --verbose"
+  register: brew_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Show outstanding Homebrew changes
+  ansible.builtin.debug:
+    msg: "{{ brew_check.stdout_lines | default(['(brew bundle satisfied)']) }}"
+
+- name: Install and prune Homebrew packages to match the Brewfile
+  ansible.builtin.command:
+    cmd: >-
+      {{ homebrew_prefix }}/bin/brew bundle install
+      --file={{ playbook_dir }}/Brewfile
+      {{ '--cleanup' if homebrew_cleanup | bool else '' }}
+  register: brew_bundle
+  # brew bundle prints "Installing"/"Uninstalling" only when it acts; without
+  # this the task would report "changed" on every single run.
+  changed_when: >-
+    'Installing' in brew_bundle.stdout
+    or 'Uninstalling' in brew_bundle.stdout
+    or 'Upgrading' in brew_bundle.stdout
+  when: brew_check.rc != 0 or homebrew_cleanup | bool
+
+- name: Note that cleanup is disabled
+  ansible.builtin.debug:
+    msg: >-
+      homebrew_cleanup is false: packages absent from the Brewfile were left
+      installed. Set it true once you have pruned the Brewfile.
+  when: not homebrew_cleanup | bool

@@ -1,67 +1,94 @@
-# mise.toml
+# ──────────────────────────────────────────────────────────────────────────────
+# mise.toml — SINGLE SOURCE OF TRUTH for language runtimes and versioned CLIs.
+#
+# `make bootstrap` symlinks this file to ~/.config/mise/config.toml, so the same
+# list applies globally (any directory) and inside this repo. Do not duplicate
+# this list into a script — that is how go=1.25.5 and go=latest drifted apart
+# in the previous version of this setup.
+#
+# RULE: anything listed here must NOT be in the Brewfile. See Brewfile header.
+# ──────────────────────────────────────────────────────────────────────────────
 
 [tools]
-# --- ☁️ Stackit & Cloud Essentials ---
-# The Official Stackit CLI (Installed via Go backend)
-"go:github.com/stackitcloud/stackit-cli" = "latest"
-awscli = "latest"       # Required for S3/Object Storage interaction
 
-# --- 🏗️ Infrastructure as Code ---
+# --- ☁️ Stackit & cloud ---
+"go:github.com/stackitcloud/stackit-cli" = "latest"  # binary is `stackit-cli`
+awscli = "latest"        # S3 / object storage
+
+# --- 🏗️ Infrastructure as code ---
 terraform = "latest"
-tflint = "latest"       # Linter
+tflint = "latest"
 terraform-docs = "latest"
 
-# --- ☸️ Kubernetes (SKE) ---
+# --- ☸️ Kubernetes ---
 kubectl = "latest"
 helm = "latest"
-k9s = "latest"          # Terminal UI for K8s
-krew = "latest"         # K8s plugin manager
+k9s = "latest"
+krew = "latest"
 
-# --- 🛠️ Core Utilities ---
-jq = "latest"
-yq = "latest"
-go = "latest"           # Required for Stackit CLI updates
+# --- 🧰 Runtimes ---
+go = "latest"            # also required to build/update the Stackit CLI
 python = "3.12"
+node = "lts"             # replaces nvm — see README "What changed"
 uv = "latest"
 
-# --- ⚡ Custom Tasks ---
+# --- 🛠️ Utilities ---
+jq = "latest"
+yq = "latest"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Tasks
+# ──────────────────────────────────────────────────────────────────────────────
 
 [tasks.install-uv-tools]
-description = "Installs tools defined in uv-tools.list"
+description = "Install Python CLI tools listed in uv-tools.list (idempotent)"
 run = """
-#!/bin/bash
-# Check if list file exists
-if [ ! -f "uv-tools.list" ]; then
-    echo "No uv-tools.list found. Skipping."
-    exit 0
+#!/usr/bin/env bash
+set -euo pipefail
+
+list="${MISE_PROJECT_ROOT:-.}/uv-tools.list"
+if [[ ! -f "$list" ]]; then
+  echo "No uv-tools.list found at $list. Skipping."
+  exit 0
 fi
 
-# Read the file line by line
-while IFS= read -r tool_spec || [ -n "$tool_spec" ]; do
-    # 1. Skip comments and empty lines
-    [[ "$tool_spec" =~ ^#.* ]] && continue
-    [[ -z "$tool_spec" ]] && continue
+# No --force here: `uv tool install` is a no-op for an already-installed tool,
+# which keeps this task idempotent. Ansible relies on that to report changed=0
+# on a second run. Upgrades belong to the update-uv-tools task below.
+while IFS= read -r spec || [[ -n "$spec" ]]; do
+  spec="${spec%%#*}"                      # strip trailing comments
+  spec="$(echo "$spec" | xargs || true)"  # trim whitespace
+  [[ -z "$spec" ]] && continue
 
-    # 2. Trim whitespace
-    tool_spec=$(echo "$tool_spec" | xargs)
+  # word-splitting is intentional: entries may carry flags like `--with ansible`
+  # shellcheck disable=SC2086
+  uv tool install $spec
+done < "$list"
+"""
 
-    # 3. Install using uv (force ensures we get the latest/reinstall)
-    echo "Installing uv tool: $tool_spec"
-    uv tool install --force $tool_spec
-done < uv-tools.list
+[tasks.update-uv-tools]
+description = "Force-reinstall every uv tool at its latest version"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+uv tool upgrade --all
 """
 
 [tasks.update-all]
-description = "Updates mise, configured tools, and uv tools"
+description = "Update mise itself, all mise tools, and all uv tools"
 run = """
-#!/bin/bash
-echo "1. Updating mise..."
-mise self-update -y
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "2. Updating mise tools..."
+echo "1/4 updating mise..."
+mise self-update -y || echo "   (self-update unavailable — mise may be brew-managed)"
+
+echo "2/4 upgrading mise tools..."
 mise upgrade -y
 
-echo "3. Updating uv tools..."
-# Re-running the install task with --force acts as an updater
+echo "3/4 installing any newly declared uv tools..."
 mise run install-uv-tools
+
+echo "4/4 upgrading existing uv tools..."
+mise run update-uv-tools
 """

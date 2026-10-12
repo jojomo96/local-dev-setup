@@ -1,0 +1,24 @@
+---
+# Install with: ansible-galaxy install -r requirements.yml
+# (bootstrap.sh and `make deps` both do this for you)
+#
+# VERSION PINNING: left open deliberately on first install, because pinning a
+# version that does not exist fails the whole run. After your first successful
+# `make bootstrap`, run `make pin-deps` to see the resolved versions and write
+# them in here — that is what makes a reset two years from now reproducible.
+
+collections:
+  # Provides osx_defaults (idempotent macOS system preferences) and
+  # git_config. This is the main reason to use Ansible over a shell script:
+  # `defaults write` is blind and unconditional, osx_defaults reports changes.
+  - name: community.general
+
+  # Provides the profile_tasks callback used in ansible.cfg.
+  - name: ansible.posix
+
+# NOTE: geerlingguy.mac is the usual recommendation for a Mac playbook, and its
+# homebrew role is good. It is deliberately NOT used here: the role installs
+# the packages you list but cannot express "remove everything not on the list",
+# which is exactly the allowlist behaviour this setup depends on to keep the
+# old laptop's junk off the new one. `brew bundle --cleanup` does that, so the
+# Brewfile stays the source of truth. See tasks/homebrew.yml.

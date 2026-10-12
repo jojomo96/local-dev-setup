@@ -1,0 +1,24 @@
+---
+extends: default
+
+rules:
+  # Ansible playbooks read better with generous line length for Jinja
+  # expressions and long `cmd:` strings.
+  line-length:
+    max: 120
+    allow-non-breakable-words: true
+  # `yes`/`no` are idiomatic in Ansible; don't fight them.
+  truthy:
+    allowed-values: ["true", "false", "yes", "no"]
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  # The inline-dict style used in group_vars/all.yml for macos_defaults is
+  # deliberate: one setting per line is far more readable than expanded maps.
+  braces:
+    max-spaces-inside: 1
+
+ignore: |
+  collections/
+  captured/
+  .github/

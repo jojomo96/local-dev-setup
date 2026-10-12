@@ -1,0 +1,35 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# macOS system preferences.
+#
+# community.general.osx_defaults instead of `defaults write`: it reads the
+# current value first, so it only writes when something differs and it reports
+# which keys changed. The shell version this replaced fired all 30 writes
+# unconditionally on every run and could not tell you what it did.
+#
+# Nothing here touches security settings (Gatekeeper, FileVault, SIP).
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Ensure the screenshot directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/Screenshots"
+    state: directory
+    mode: "0755"
+
+- name: Apply macOS system preferences
+  community.general.osx_defaults:
+    domain: "{{ item.domain | default('NSGlobalDomain') }}"
+    key: "{{ item.key }}"
+    type: "{{ item.type }}"
+    value: "{{ item.value }}"
+    state: present
+  loop: "{{ macos_defaults }}"
+  loop_control:
+    label: "{{ item.domain | default('NSGlobalDomain') }} : {{ item.key }}"
+  notify: macos preferences changed
+
+- name: Remind about settings that need a re-login
+  ansible.builtin.debug:
+    msg: >-
+      Applied. Keyboard repeat rate and some Finder settings only appear in
+      System Settings after you log out and back in.

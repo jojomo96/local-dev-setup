@@ -1,0 +1,60 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# MANAGED BY local-dev-setup  (repo: dotfiles/git/.gitconfig -> ~/.gitconfig)
+#
+# Name/email/signing key are NOT stored here — they are personal data and may
+# differ per machine. `make identity` writes them to ~/.config/git/identity,
+# which is included below.
+# ──────────────────────────────────────────────────────────────────────────────
+
+[include]
+	path = ~/.config/git/identity
+
+[init]
+	defaultBranch = main
+
+[core]
+	excludesfile = ~/.gitignore_global
+	editor = code --wait
+	autocrlf = input
+
+[pull]
+	rebase = true
+[push]
+	default = current
+	autoSetupRemote = true
+[fetch]
+	prune = true
+	prunetags = true
+
+[rebase]
+	autosquash = true
+	autostash = true
+
+[merge]
+	conflictstyle = zdiff3
+[diff]
+	algorithm = histogram
+	colorMoved = default
+
+[rerere]
+	enabled = true
+
+[commit]
+	verbose = true
+
+[help]
+	autocorrect = prompt
+
+[alias]
+	s = status --short --branch
+	lg = log --oneline --graph --decorate -20
+	last = log -1 HEAD --stat
+	unstage = restore --staged
+	amend = commit --amend --no-edit
+	wip = commit -am "wip" --no-verify
+
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true

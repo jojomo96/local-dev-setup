@@ -1,0 +1,30 @@
+# MANAGED BY local-dev-setup (-> ~/.gitignore_global)
+# Things that should never be committed to ANY repo on this machine.
+
+# macOS
+.DS_Store
+.AppleDouble
+._*
+.Spotlight-V100
+.Trashes
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Editor backups
+*~
+*.swp
+*.swo
+
+# Direnv
+.direnv/
+
+# Secrets — belt and braces. Project .gitignore should cover these too.
+.env
+.env.local
+*.pem
+*.p12
+id_rsa
+id_ed25519

@@ -1,0 +1,19 @@
+---
+exclude_paths:
+  - collections/
+  - captured/
+  - .github/
+
+skip_list:
+  # This playbook targets localhost only; `become` is deliberately unused and
+  # the Homebrew/mise installers must run as the logged-in user.
+  - package-latest
+
+warn_list:
+  - experimental
+
+# The Homebrew and oh-my-zsh installers are curl|sh by upstream design, and
+# mise.run likewise. command/shell is the correct module for them; the tasks
+# carry explicit changed_when/creates guards so idempotency is preserved.
+enable_list:
+  - fqcn-builtins

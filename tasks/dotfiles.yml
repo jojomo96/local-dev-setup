@@ -1,0 +1,76 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# Dotfiles: the repo owns the files, $HOME gets symlinks.
+#
+# This replaces a hand-written bash script whose three bugs were all in the
+# plumbing (a tilde substitution that silently didn't fire, a BSD-only `stat`
+# flag, an over-broad glob). ansible.builtin.file has none of that.
+#
+# One nuance worth knowing: the file module has no `backup` option for
+# state=link, so preserving a pre-existing real file needs its own task below.
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Ensure parent directories exist
+  ansible.builtin.file:
+    path: "{{ item.dest | dirname }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ dotfile_links }}"
+  loop_control:
+    label: "{{ item.dest | dirname }}"
+
+- name: Inspect existing dotfile destinations
+  ansible.builtin.stat:
+    path: "{{ item.dest }}"
+  loop: "{{ dotfile_links }}"
+  loop_control:
+    label: "{{ item.dest }}"
+  register: dotfile_state
+
+- name: Back up real files that a symlink would replace
+  # Only fires for regular files, never for our own symlinks, so re-running
+  # does not pile up backups. Timestamped so a second run cannot clobber the
+  # first backup — the previous bash version overwrote it.
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ item.stat.path }}.bak.{{ ansible_date_time.iso8601_basic_short }}"
+    remote_src: true
+    mode: preserve
+  loop: "{{ dotfile_state.results }}"
+  loop_control:
+    label: "{{ item.item.dest }}"
+  when:
+    - item.stat.exists
+    - not item.stat.islnk
+
+- name: Link dotfiles into $HOME
+  ansible.builtin.file:
+    src: "{{ playbook_dir }}/{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+    force: true
+  loop: "{{ dotfile_links }}"
+  loop_control:
+    label: "{{ item.dest }} -> {{ item.src }}"
+
+# ── Secrets scaffold ────────────────────────────────────────────────────────
+- name: Create the secrets directory
+  ansible.builtin.file:
+    path: "{{ secrets_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: Seed secrets.env from the template on first run only
+  # force=false means your real credentials are never overwritten by the
+  # placeholder template on subsequent runs.
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/secrets.env.example"
+    dest: "{{ secrets_dir }}/secrets.env"
+    mode: "0600"
+    force: false
+    remote_src: true
+
+- name: Enforce 0600 on secrets.env
+  ansible.builtin.file:
+    path: "{{ secrets_dir }}/secrets.env"
+    mode: "0600"

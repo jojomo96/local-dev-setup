@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # A setup repo rots silently: upstream Homebrew, mise and oh-my-zsh changes
+  # break it while you aren't looking. Catch that monthly, not on reset day.
+  schedule:
+    - cron: "0 6 1 * *"
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tooling
+        run: |
+          pip install --quiet ansible-core ansible-lint yamllint
+          sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Install collections
+        run: ansible-galaxy install -r requirements.yml
+
+      - run: yamllint .
+      - run: ansible-playbook main.yml --syntax-check
+      - run: ansible-lint
+      - run: shellcheck -x bootstrap.sh scripts/*.sh
+      - run: ./scripts/check-duplicates.sh
+
+  secret-scan:
+    name: secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Replaces a hand-written regex that only knew four variable names.
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  linux:
+    name: playbook (linux container)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the playbook twice and assert changed=0
+        run: make test
+
+  macos:
+    name: playbook (macos)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ansible and collections
+        run: |
+          pip3 install --quiet ansible-core
+          ansible-galaxy install -r requirements.yml
+
+      # The runner ships a large preinstalled brew set; --cleanup would spend
+      # the whole job uninstalling it. Install additively instead.
+      - name: Run the playbook
+        run: |
+          ansible-playbook main.yml \
+            -e homebrew_cleanup=false \
+            -e git_user_name=CI \
+            -e git_user_email=ci@example.com
+
+      - name: Re-run and assert idempotency
+        run: |
+          ansible-playbook main.yml \
+            -e homebrew_cleanup=false \
+            -e git_user_name=CI \
+            -e git_user_email=ci@example.com | tee run2.log
+
+          recap=$(grep -E '^localhost *:' run2.log || true)
+          echo "recap: $recap"
+          if ! echo "$recap" | grep -q 'changed=0'; then
+            echo "::error::Second run was not idempotent — see run2.log"
+            exit 1
+          fi
+
+      - name: Assert dotfile symlinks point into the repo
+        run: |
+          for f in .zshrc .zshenv .gitconfig .gitignore_global; do
+            target="$(readlink "$HOME/$f" || echo NOT-A-LINK)"
+            case "$target" in
+              "$PWD"/*) echo "ok   $f -> $target" ;;
+              *) echo "::error::$f -> $target"; exit 1 ;;
+            esac
+          done
+
+      - name: Assert the managed .zshrc loads
+        run: |
+          zsh -n "$HOME/.zshrc"
+          zsh -i -c 'echo "interactive zsh ok"'
+
+      - name: Check mode must be clean on a configured machine
+        run: |
+          ansible-playbook main.yml --check --diff \
+            -e homebrew_cleanup=false \
+            -e git_user_name=CI \
+            -e git_user_email=ci@example.com

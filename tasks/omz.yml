@@ -1,0 +1,36 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# oh-my-zsh and its non-bundled plugins.
+#
+# Runs before the dotfile links: the managed .zshrc sources $ZSH/oh-my-zsh.sh,
+# so a shell opened before oh-my-zsh exists would error on startup.
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Check whether oh-my-zsh is installed
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.oh-my-zsh/oh-my-zsh.sh"
+  register: omz
+
+- name: Install oh-my-zsh
+  # KEEP_ZSHRC stops the installer writing its own ~/.zshrc, which the
+  # dotfiles task would immediately replace with a symlink anyway.
+  # CHSH=no leaves the login shell alone; RUNZSH=no stops it dropping into zsh.
+  ansible.builtin.shell:
+    cmd: >-
+      RUNZSH=no KEEP_ZSHRC=yes CHSH=no /bin/sh -c
+      "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+  when: not omz.stat.exists
+  changed_when: true
+
+- name: Install custom oh-my-zsh plugins
+  ansible.builtin.git:
+    repo: "{{ item.repo }}"
+    dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/{{ item.name }}"
+    depth: 1
+    version: master
+    # Don't fight local modifications or churn on every run just because
+    # upstream moved; `make update` is where plugin updates belong.
+    update: false
+  loop: "{{ omz_custom_plugins }}"
+  loop_control:
+    label: "{{ item.name }}"

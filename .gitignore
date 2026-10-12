@@ -1,1 +1,34 @@
-*.idea
+# --- IDE / OS ---
+.idea/
+.vscode/
+.DS_Store
+
+# --- Ansible ---
+collections/
+roles/
+*.retry
+.ansible/
+# The vault password itself must never be committed; keep it in KeePass.
+.vault-pass
+
+# --- Secrets: never commit these ---
+# Real secrets live in ~/.config/devsetup/secrets.env (chmod 600), or in an
+# ansible-vault encrypted group_vars/vault.yml (which IS safe to commit).
+secrets.env
+*.secrets
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# --- Stray backups (these have historically contained live credentials) ---
+*_backup_manual
+*.bak
+*.bak.*
+zshrc_backup*
+
+# --- Generated audit output ---
+# captured/ lists your private paths and installed software: keep it local.
+captured/
+Brewfile.audit
+Brewfile.lock.json

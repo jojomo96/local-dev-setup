@@ -1,0 +1,62 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# mise: language runtimes and versioned CLIs, plus uv-managed Python tools.
+#
+# Runs after the dotfiles task, because ~/.config/mise/config.toml is a symlink
+# to this repo's mise.toml created there. That link is what stops the global
+# tool list and the repo's list from drifting apart.
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Check whether mise is installed
+  ansible.builtin.stat:
+    path: "{{ mise_bin }}"
+  register: mise_installed
+
+- name: Install mise
+  ansible.builtin.shell:
+    cmd: "curl -fsSL https://mise.run | sh"
+    creates: "{{ mise_bin }}"
+  when: not mise_installed.stat.exists
+
+- name: Confirm the global mise config is linked to this repo
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.config/mise/config.toml"
+  register: mise_config
+
+- name: Fail when the global mise config is missing
+  ansible.builtin.fail:
+    msg: >-
+      ~/.config/mise/config.toml is missing. Run the dotfiles tasks first
+      (make dotfiles), which links it to this repo's mise.toml.
+  when: not mise_config.stat.exists
+
+- name: Determine which tools are missing
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} ls --missing --json"
+  register: mise_missing
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install mise-managed tools
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} install --yes"
+  register: mise_install
+  # Without an explicit changed_when this reports "changed" on every run even
+  # when every tool is already present.
+  changed_when: >-
+    'Installing' in (mise_install.stderr | default(''))
+    or 'Installing' in (mise_install.stdout | default(''))
+  when: mise_missing.stdout | default('{}') | trim not in ['{}', '[]', '']
+
+- name: Install Python CLI tools via uv
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} run install-uv-tools"
+  register: uv_tools
+  # The mise task deliberately omits `uv tool install --force`, so uv prints
+  # "already installed" and this stays genuinely idempotent. Upgrades are a
+  # separate, explicit action (make update).
+  changed_when: >-
+    'Installed' in (uv_tools.stdout | default(''))
+    or 'Installed' in (uv_tools.stderr | default(''))
+  tags: [uv]

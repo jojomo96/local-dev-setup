@@ -1,0 +1,87 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# Configure a macOS development laptop.
+#
+#   ansible-playbook main.yml                    # everything
+#   ansible-playbook main.yml --check --diff     # dry run, shows what'd change
+#   ansible-playbook main.yml --tags macos       # one area
+#
+# Or via the Makefile: make bootstrap / make check / make macos
+#
+# Idempotency is the contract: a second run must report changed=0. CI asserts
+# exactly that, which is a far stronger guarantee than the hand-written
+# assertions this replaced.
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Configure development laptop
+  hosts: local
+  gather_facts: true
+
+  pre_tasks:
+    - name: Assert we are running against the local machine only
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname == 'localhost'
+          - ansible_connection == 'local'
+        fail_msg: >-
+          This playbook configures the machine it runs on and must not target a
+          remote host.
+        quiet: true
+      tags: always
+
+    - name: Warn when not running on macOS
+      ansible.builtin.debug:
+        msg: >-
+          Not running on macOS ({{ ansible_system }}) — Homebrew and the system
+          preference tasks will be skipped. Dotfiles and mise still apply.
+      when: ansible_system != 'Darwin'
+      tags: always
+
+  tasks:
+    - name: Homebrew packages
+      ansible.builtin.import_tasks: tasks/homebrew.yml
+      when:
+        - configure_homebrew | bool
+        - ansible_system == 'Darwin'
+      tags: [brew, homebrew]
+
+    # Must precede the dotfile links: the managed .zshrc sources
+    # $ZSH/oh-my-zsh.sh, so a shell opened before oh-my-zsh exists errors out.
+    - name: oh-my-zsh
+      ansible.builtin.import_tasks: tasks/omz.yml
+      when: configure_omz | bool
+      tags: [omz, zsh]
+
+    - name: Dotfiles
+      ansible.builtin.import_tasks: tasks/dotfiles.yml
+      when: configure_dotfiles | bool
+      tags: [dotfiles]
+
+    # Must follow dotfiles: ~/.config/mise/config.toml is a symlink created
+    # there, and `mise install` reads it.
+    - name: mise runtimes and uv tools
+      ansible.builtin.import_tasks: tasks/mise.yml
+      when: configure_mise | bool
+      tags: [mise, tools]
+
+    - name: Git identity, SSH and GPG
+      ansible.builtin.import_tasks: tasks/identity.yml
+      when: configure_identity | bool
+      tags: [identity]
+
+    - name: macOS system preferences
+      ansible.builtin.import_tasks: tasks/macos.yml
+      when:
+        - configure_macos | bool
+        - ansible_system == 'Darwin'
+      tags: [macos]
+
+  handlers:
+    - name: Restart affected macOS apps
+      ansible.builtin.command:
+        cmd: "killall {{ item }}"
+      loop: [Finder, Dock, SystemUIServer]
+      register: killall_result
+      changed_when: killall_result.rc == 0
+      failed_when: false
+      listen: macos preferences changed

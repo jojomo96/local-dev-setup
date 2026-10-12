@@ -1,0 +1,106 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# The single place to configure this machine.
+#
+# Package lists live in Brewfile / mise.toml / uv-tools.list rather than here,
+# because those are the native formats of their managers and get allowlist
+# semantics for free. Everything else is below.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Which parts of the playbook to run ──────────────────────────────────────
+# Also addressable as tags: ansible-playbook main.yml --tags macos
+configure_homebrew: true
+configure_omz: true
+configure_dotfiles: true
+configure_mise: true
+configure_identity: true
+configure_macos: true
+
+# Whether `brew bundle` may UNINSTALL packages missing from the Brewfile.
+# This is the mechanism that keeps the garbage off a fresh machine. Set false
+# for a first additive run on a machine you aren't ready to prune yet.
+homebrew_cleanup: true
+
+# ── Git identity ────────────────────────────────────────────────────────────
+# Fill these in. They're written to ~/.config/git/identity, which the managed
+# ~/.gitconfig includes — so your name and email never land in the repo.
+# Leave empty to skip the identity tasks entirely.
+git_user_name: ""
+git_user_email: ""
+
+# ── Dotfiles: repo path -> target in $HOME ──────────────────────────────────
+# Real files already at the destination are backed up with a timestamp before
+# being replaced by the symlink.
+dotfile_links:
+  - src: dotfiles/zsh/.zshrc
+    dest: "{{ ansible_env.HOME }}/.zshrc"
+  - src: dotfiles/zsh/.zshenv
+    dest: "{{ ansible_env.HOME }}/.zshenv"
+  - src: dotfiles/git/.gitconfig
+    dest: "{{ ansible_env.HOME }}/.gitconfig"
+  - src: dotfiles/git/.gitignore_global
+    dest: "{{ ansible_env.HOME }}/.gitignore_global"
+  # mise.toml is linked, not copied, so the global tool list and this repo's
+  # list are physically the same file and cannot drift apart.
+  - src: mise.toml
+    dest: "{{ ansible_env.HOME }}/.config/mise/config.toml"
+
+# ── oh-my-zsh plugins that aren't bundled ───────────────────────────────────
+omz_custom_plugins:
+  - name: zsh-bat
+    repo: https://github.com/fdellwing/zsh-bat.git
+
+# ── macOS system preferences ────────────────────────────────────────────────
+# Applied with community.general.osx_defaults: idempotent, and it tells you
+# which keys actually changed. Delete any line you disagree with.
+macos_defaults:
+  # Keyboard — the biggest quality-of-life win for a developer.
+  - { key: KeyRepeat, type: int, value: 2 }            # fast repeat
+  - { key: InitialKeyRepeat, type: int, value: 15 }
+  - { key: ApplePressAndHoldEnabled, type: bool, value: false }  # no accent menu
+  - { key: AppleKeyboardUIMode, type: int, value: 3 }  # tab through dialogs
+
+  # Text input — smart quotes and dashes corrupt code and YAML.
+  - { key: NSAutomaticQuoteSubstitutionEnabled, type: bool, value: false }
+  - { key: NSAutomaticDashSubstitutionEnabled, type: bool, value: false }
+  - { key: NSAutomaticCapitalizationEnabled, type: bool, value: false }
+  - { key: NSAutomaticSpellingCorrectionEnabled, type: bool, value: false }
+  - { key: NSAutomaticPeriodSubstitutionEnabled, type: bool, value: false }
+
+  # Save dialogs
+  - { key: NSNavPanelExpandedStateForSaveMode, type: bool, value: true }
+  - { key: NSDocumentSaveNewDocumentsToCloud, type: bool, value: false }
+  - { key: AppleShowAllExtensions, type: bool, value: true }
+
+  # Trackpad
+  - { key: "com.apple.mouse.tapBehavior", type: int, value: 1 }
+
+  # Finder
+  - { domain: com.apple.finder, key: AppleShowAllFiles, type: bool, value: true }
+  - { domain: com.apple.finder, key: ShowPathbar, type: bool, value: true }
+  - { domain: com.apple.finder, key: ShowStatusBar, type: bool, value: true }
+  - { domain: com.apple.finder, key: FXDefaultSearchScope, type: string, value: SCcf }
+  - { domain: com.apple.finder, key: FXPreferredViewStyle, type: string, value: Nlsv }
+  - { domain: com.apple.finder, key: _FXSortFoldersFirst, type: bool, value: true }
+  - { domain: com.apple.finder, key: FXEnableExtensionChangeWarning, type: bool, value: false }
+
+  # Stop .DS_Store on network/USB volumes — they end up committed to repos.
+  - { domain: com.apple.desktopservices, key: DSDontWriteNetworkStores, type: bool, value: true }
+  - { domain: com.apple.desktopservices, key: DSDontWriteUSBStores, type: bool, value: true }
+
+  # Dock
+  - { domain: com.apple.dock, key: autohide, type: bool, value: true }
+  - { domain: com.apple.dock, key: autohide-delay, type: float, value: 0 }
+  - { domain: com.apple.dock, key: autohide-time-modifier, type: float, value: 0.15 }
+  - { domain: com.apple.dock, key: show-recents, type: bool, value: false }
+  - { domain: com.apple.dock, key: tilesize, type: int, value: 42 }
+  - { domain: com.apple.dock, key: mru-spaces, type: bool, value: false }
+
+  # Screenshots
+  - { domain: com.apple.screencapture, key: location, type: string, value: "{{ ansible_env.HOME }}/Screenshots" }
+  - { domain: com.apple.screencapture, key: disable-shadow, type: bool, value: true }
+  - { domain: com.apple.screencapture, key: type, type: string, value: png }
+
+# ── Paths ───────────────────────────────────────────────────────────────────
+mise_bin: "{{ ansible_env.HOME }}/.local/bin/mise"
+secrets_dir: "{{ ansible_env.HOME }}/.config/devsetup"

@@ -1,0 +1,135 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# Git identity, SSH key, GPG signing, GitHub auth.
+#
+# The fiddly half-hour nobody remembers to script. Name and email are written
+# to ~/.config/git/identity (included by the managed ~/.gitconfig), so personal
+# data never lands in the repo.
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Warn when the git identity is not configured
+  ansible.builtin.debug:
+    msg: >-
+      git_user_name / git_user_email are empty in group_vars/all.yml — skipping
+      git identity. Commits will fail until you set them.
+  when: not (git_user_name | length and git_user_email | length)
+
+- name: Write the git identity include file
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.config/git/identity"
+    mode: "0644"
+    content: |
+      # Managed by Ansible (group_vars/all.yml). Not tracked in the repo.
+      [user]
+      	name = {{ git_user_name }}
+      	email = {{ git_user_email }}
+  when: git_user_name | length and git_user_email | length
+
+# ── SSH ─────────────────────────────────────────────────────────────────────
+- name: Ensure ~/.ssh exists with safe permissions
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.ssh"
+    state: directory
+    mode: "0700"
+
+- name: Generate an ed25519 SSH key
+  # `creates` makes this a no-op once the key exists, so an existing key is
+  # never overwritten.
+  ansible.builtin.command:
+    cmd: >-
+      ssh-keygen -t ed25519 -N '' -f {{ ansible_env.HOME }}/.ssh/id_ed25519
+      -C "{{ git_user_email | default(ansible_user_id + '@' + ansible_hostname, true) }}"
+    creates: "{{ ansible_env.HOME }}/.ssh/id_ed25519"
+  register: ssh_keygen
+
+- name: Note that the generated key has no passphrase
+  ansible.builtin.debug:
+    msg: >-
+      A passphrase-less SSH key was created. To add one:
+      ssh-keygen -p -f ~/.ssh/id_ed25519
+  when: ssh_keygen.changed
+
+- name: Configure ssh to use the macOS keychain
+  # Stops you retyping the passphrase in every new terminal.
+  ansible.builtin.blockinfile:
+    path: "{{ ansible_env.HOME }}/.ssh/config"
+    create: true
+    mode: "0600"
+    marker: "# {mark} ANSIBLE MANAGED (local-dev-setup)"
+    block: |
+      Host *
+      	AddKeysToAgent yes
+      	UseKeychain yes
+      	IdentityFile ~/.ssh/id_ed25519
+  when: ansible_system == 'Darwin'
+
+# ── GPG commit signing ──────────────────────────────────────────────────────
+- name: Look for a GPG secret key
+  ansible.builtin.command:
+    cmd: gpg --list-secret-keys --keyid-format=long
+  register: gpg_keys
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Extract the signing key id
+  # regex_findall always returns a list, so `first | default` cannot blow up on
+  # a non-match. regex_search with a capture group returns None instead, which
+  # would make `| first` raise.
+  ansible.builtin.set_fact:
+    gpg_signing_key: >-
+      {{ (gpg_keys.stdout | regex_findall('^sec +[^/]+/([0-9A-F]{16})', multiline=True)
+          | first | default('', true)) if gpg_keys.rc == 0 else '' }}
+
+- name: Enable commit signing
+  community.general.git_config:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    scope: file
+    file: "{{ ansible_env.HOME }}/.config/git/identity"
+  loop:
+    - { name: user.signingkey, value: "{{ gpg_signing_key }}" }
+    - { name: commit.gpgsign, value: "true" }
+    - { name: tag.gpgsign, value: "true" }
+  loop_control:
+    label: "{{ item.name }}"
+  when: gpg_signing_key | length > 0
+
+- name: Explain how to restore a GPG key
+  ansible.builtin.debug:
+    msg:
+      - "No GPG secret key found — commit signing is off."
+      - "Restoring your old key keeps past signed commits verified:"
+      - "  old machine: gpg --export-secret-keys --armor <KEYID> > key.asc"
+      - "  new machine: gpg --import key.asc"
+      - "Or generate a new one: gpg --full-generate-key"
+  when: not (gpg_signing_key | length > 0)
+
+- name: Point gpg-agent at pinentry-mac
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.gnupg/gpg-agent.conf"
+    line: "pinentry-program {{ homebrew_prefix | default('/opt/homebrew') }}/bin/pinentry-mac"
+    regexp: "^pinentry-program"
+    create: true
+    mode: "0600"
+  when:
+    - ansible_system == 'Darwin'
+    - gpg_signing_key | length > 0
+
+# ── GitHub ──────────────────────────────────────────────────────────────────
+- name: Check gh authentication
+  ansible.builtin.command:
+    cmd: gh auth status
+  register: gh_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Explain the remaining manual steps
+  # gh auth login needs a browser, so it cannot be automated here.
+  ansible.builtin.debug:
+    msg:
+      - "gh is not authenticated. Run these yourself:"
+      - "  gh auth login"
+      - "  gh ssh-key add ~/.ssh/id_ed25519.pub --title '{{ ansible_hostname }}'"
+  when: gh_status.rc != 0
