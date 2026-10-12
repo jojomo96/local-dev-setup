@@ -1,0 +1,94 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# krew plugins, helm repos, and global pnpm packages.
+#
+# These sit outside every other manager: krew plugins live in ~/.krew, helm
+# repos in ~/Library/Preferences/helm, pnpm globals in ~/Library/pnpm. Nothing
+# else in this playbook would restore them, and a `kubectl oidc-login` that
+# isn't installed means an OIDC cluster you simply cannot authenticate to.
+#
+# Runs after tasks/mise.yml, which provides kubectl, krew, helm and pnpm.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── krew ────────────────────────────────────────────────────────────────────
+- name: Check which krew plugins are installed
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} exec -- kubectl krew list"
+  register: krew_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  environment:
+    KREW_ROOT: "{{ ansible_env.HOME }}/.krew"
+
+- name: Update the krew plugin index
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} exec -- kubectl krew update"
+  register: krew_update
+  changed_when: "'Updated the local copy' in (krew_update.stdout | default(''))"
+  failed_when: false
+  environment:
+    KREW_ROOT: "{{ ansible_env.HOME }}/.krew"
+  when:
+    - krew_plugins | default([]) | length > 0
+    - krew_installed.rc == 0
+
+- name: Install krew plugins
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} exec -- kubectl krew install {{ item }}"
+  loop: "{{ krew_plugins | default([]) }}"
+  register: krew_install
+  # krew exits non-zero if the plugin is already installed, so filter on the
+  # message rather than the return code to stay idempotent.
+  changed_when: "'Installed plugin' in (krew_install.stdout | default(''))"
+  failed_when:
+    - krew_install.rc != 0
+    - "'already installed' not in (krew_install.stderr | default('')) | lower"
+  environment:
+    KREW_ROOT: "{{ ansible_env.HOME }}/.krew"
+  when: krew_installed.rc == 0
+
+# ── helm ────────────────────────────────────────────────────────────────────
+- name: List configured helm repos
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} exec -- helm repo list -o json"
+  register: helm_existing
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Add helm repositories
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} exec -- helm repo add {{ item.name }} {{ item.url }}"
+  loop: "{{ helm_repos | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  # Only add what's missing, so the task doesn't report changed every run.
+  when: item.name not in (helm_existing.stdout | default('[]') | from_json
+                          | map(attribute='name') | list
+                          if helm_existing.rc == 0 else [])
+  changed_when: true
+
+# ── pnpm globals ────────────────────────────────────────────────────────────
+- name: List global pnpm packages
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} exec -- pnpm ls -g --depth=0 --json"
+  register: pnpm_existing
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  environment:
+    PNPM_HOME: "{{ ansible_env.HOME }}/Library/pnpm"
+
+- name: Install global pnpm packages
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} exec -- pnpm add -g {{ item }}"
+  loop: "{{ pnpm_global_packages | default([]) }}"
+  register: pnpm_add
+  changed_when: "'Already up to date' not in (pnpm_add.stdout | default(''))"
+  failed_when: false
+  environment:
+    PNPM_HOME: "{{ ansible_env.HOME }}/Library/pnpm"
+  when:
+    - pnpm_existing.rc == 0
+    - item not in (pnpm_existing.stdout | default(''))

@@ -38,6 +38,21 @@ uv = "latest"
 # the two need to move together.
 golangci-lint = "latest"
 
+# These were `go install`-ed into ~/go/bin and declared nowhere, so a reset
+# would have silently lost them. gopls in particular is the Go language
+# server — without it your editor has no autocomplete or refactoring.
+#
+# If one of these fails to install, the module path is the thing to check:
+# upstream repos move. mockgen notably migrated from github.com/golang/mock
+# to go.uber.org/mock.
+"go:golang.org/x/tools/gopls" = "latest"
+"go:honnef.co/go/tools/cmd/staticcheck" = "latest"
+"go:go.uber.org/mock/mockgen" = "latest"
+"go:github.com/volatiletech/sqlboiler/v4" = "latest"
+"go:github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql" = "latest"
+"go:github.com/jstemmer/go-junit-report/v2" = "latest"
+"go:github.com/boumenot/gocover-cobertura" = "latest"
+
 # --- 📦 Node ecosystem ---
 pnpm = "latest"          # was a brew install; node is already managed here
 

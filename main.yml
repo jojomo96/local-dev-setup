@@ -64,7 +64,13 @@
       when: configure_mise | bool
       tags: [mise, tools]
 
-    - name: Git identity, SSH and GPG
+    # Must follow mise: needs kubectl, krew, helm and pnpm to exist.
+    - name: krew plugins, helm repos, pnpm globals
+      ansible.builtin.import_tasks: tasks/k8s-plugins.yml
+      when: configure_plugins | bool
+      tags: [plugins, k8s]
+
+    - name: Git identity and SSH reporting
       ansible.builtin.import_tasks: tasks/identity.yml
       when: configure_identity | bool
       tags: [identity]

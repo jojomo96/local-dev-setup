@@ -4,6 +4,8 @@
 
 # --- Infrastructure ---
 ansible-core --with ansible
+ansible-lint                 # this repo's own CI runs it; was a pipx install
+yamllint                     # ditto
 
 # --- Python Dev Tools ---
 ruff

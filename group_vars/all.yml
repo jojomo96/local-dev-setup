@@ -13,6 +13,7 @@ configure_homebrew: true
 configure_omz: true
 configure_dotfiles: true
 configure_mise: true
+configure_plugins: true
 configure_identity: true
 configure_macos: true
 
@@ -56,6 +57,24 @@ dotfile_links:
 omz_custom_plugins:
   - name: zsh-bat
     repo: https://github.com/fdellwing/zsh-bat.git
+
+# ── kubectl plugins (krew) ──────────────────────────────────────────────────
+# oidc-login is not optional: it's what authenticates the OIDC kubeconfig
+# (dns-nonprd-oidc). Without it that cluster fails to log in, and nothing
+# else in this setup would have restored it.
+krew_plugins:
+  - oidc-login
+
+# ── Helm chart repositories ─────────────────────────────────────────────────
+helm_repos:
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+
+# ── Globally-installed pnpm packages ────────────────────────────────────────
+# Node CLIs that aren't on any other manager's list.
+pnpm_global_packages:
+  - cdktf-cli                # Terraform CDK
+  - openapi-to-postmanv2
 
 # ── macOS system preferences ────────────────────────────────────────────────
 # Applied with community.general.osx_defaults: idempotent, and it tells you

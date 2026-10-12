@@ -185,9 +185,24 @@ step "Dotfile inventory (what's managed vs. what's loose)"
   echo "## DO NOT VERSION — these contain credentials or machine state"
   for p in ~/.ssh/config ~/.netrc ~/.npmrc ~/.pypirc ~/.docker/config.json \
            ~/.config/gh/hosts.yml ~/.aws ~/.kube ~/.config/stackit \
-           ~/.terraform.d/credentials.tfrc.json; do
+           ~/.terraform.d/credentials.tfrc.json \
+           ~/.vault-token ~/.config/vault ~/.hcl \
+           ~/.config/op ~/.local/share/keyrings; do
     [[ -e "$p" ]] && printf '  %-44s (%s)\n' "$(pretty_path "$p")" \
       "$(du -sh "$p" 2>/dev/null | cut -f1)"
+  done
+
+  echo
+  echo "## STALE rc BACKUPS — check for secrets, then delete"
+  echo "# Debris from the old sed-patching setup. The symlink approach can't"
+  echo "# create these, so anything listed here is from before the rewrite."
+  for p in "$HOME"/.zshrc.* "$HOME"/.bashrc.* "$HOME"/.zprofile.* \
+           "$HOME"/.zshrc.save "$HOME"/.*.pre-mise; do
+    [[ -f "$p" ]] || continue
+    case "$(basename "$p")" in
+      *.zwc|*.zwc.old) continue ;;   # compiled zsh completion caches
+    esac
+    printf '  %s\n' "$(pretty_path "$p")"
   done
 
   echo
