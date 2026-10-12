@@ -63,7 +63,7 @@ gh auth login     # only needed the first time you push a change back
 | `./bootstrap.sh` | Install Ansible, then run the playbook |
 | `make check` | **Dry run** — shows exactly what would change, writes nothing |
 | `make doctor` | `check` plus the hygiene checks Ansible can't do |
-| `make brew` | Sync Homebrew to `Brewfile` (**removes** anything not listed) |
+| `make brew` | Sync Homebrew to `Brewfile` (also **removes** anything not listed when `homebrew_cleanup` is true) |
 | `make dotfiles` / `mise` / `identity` / `macos` | Single areas (playbook tags) |
 | `make update` | Update mise tools, uv tools, brew |
 | `make lint` | yamllint + ansible-lint + syntax + shellcheck |
@@ -80,7 +80,7 @@ main.yml              the playbook
 group_vars/all.yml    single place to configure this machine
 requirements.yml      Ansible collections
 tasks/
-  homebrew.yml        brew install + `brew bundle --cleanup`
+  homebrew.yml        brew install + `brew bundle install` / `cleanup`
   omz.yml             oh-my-zsh + custom plugins
   dotfiles.yml        symlinks, with timestamped backups
   mise.yml            runtimes + uv tools
@@ -129,7 +129,7 @@ the bootstrap venv, so both stages work without you thinking about it.
 `geerlingguy.mac.homebrew` is the usual recommendation and its install logic is
 good, but it can only express "install these packages" — not "uninstall
 everything not on this list". That allowlist behaviour is the whole point here,
-and `brew bundle --cleanup` is the only thing that provides it. So the Brewfile
+and `brew bundle cleanup` is the only thing that provides it. So the Brewfile
 stays the source of truth and Ansible drives it.
 
 ### Where things that aren't in git live

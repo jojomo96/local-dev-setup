@@ -22,7 +22,8 @@ configure_macos: true
 # Whether `brew bundle` may UNINSTALL packages missing from the Brewfile.
 # This is the mechanism that keeps the garbage off a fresh machine. Set false
 # for a first additive run on a machine you aren't ready to prune yet.
-homebrew_cleanup: true
+# Off for now: turn it on once the Brewfile has been checked on the new Mac.
+homebrew_cleanup: false
 
 # ── Git identity ────────────────────────────────────────────────────────────
 # Fill these in. They're written to ~/.config/git/identity, which the managed

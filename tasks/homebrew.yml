@@ -3,7 +3,7 @@
 # Homebrew: install it, then reconcile the machine against the Brewfile.
 #
 # The Brewfile stays the source of truth rather than an Ansible variable list,
-# because `brew bundle --cleanup` gives allowlist semantics — it uninstalls
+# because `brew bundle cleanup` gives allowlist semantics — it uninstalls
 # anything not declared. That is the property that keeps the old laptop's
 # accumulated junk off the new one, and no Ansible homebrew module expresses it.
 # ──────────────────────────────────────────────────────────────────────────────
@@ -74,20 +74,25 @@
   ansible.builtin.debug:
     msg: "{{ brew_check.stdout_lines | default(['(brew bundle satisfied)']) }}"
 
-- name: Install and prune Homebrew packages to match the Brewfile
+- name: Install Homebrew packages from the Brewfile
   ansible.builtin.command:
-    cmd: >-
-      {{ homebrew_prefix }}/bin/brew bundle install
-      --file={{ playbook_dir }}/Brewfile
-      {{ '--cleanup' if homebrew_cleanup | bool else '' }}
+    cmd: "{{ homebrew_prefix }}/bin/brew bundle install --file={{ playbook_dir }}/Brewfile"
   register: brew_bundle
-  # brew bundle prints "Installing"/"Uninstalling" only when it acts; without
+  # brew bundle prints "Installing"/"Upgrading" only when it acts; without
   # this the task would report "changed" on every single run.
   changed_when: >-
     'Installing' in brew_bundle.stdout
-    or 'Uninstalling' in brew_bundle.stdout
     or 'Upgrading' in brew_bundle.stdout
-  when: brew_check.rc != 0 or homebrew_cleanup | bool
+  when: brew_check.rc != 0
+
+# Removal is a separate command: Homebrew disabled `brew bundle install
+# --cleanup`, and `brew bundle cleanup --force` is what remains.
+- name: Uninstall Homebrew packages missing from the Brewfile
+  ansible.builtin.command:
+    cmd: "{{ homebrew_prefix }}/bin/brew bundle cleanup --force --file={{ playbook_dir }}/Brewfile"
+  register: brew_cleanup
+  changed_when: "'Uninstalling' in brew_cleanup.stdout"
+  when: homebrew_cleanup | bool
 
 - name: Note that cleanup is disabled
   ansible.builtin.debug:

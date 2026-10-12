@@ -1,9 +1,9 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Brewfile — the declarative list of everything Homebrew should install.
 #
-# THIS IS THE ALLOWLIST. `make brew` runs `brew bundle install --cleanup`,
-# which installs everything here AND UNINSTALLS anything on the machine that is
-# not here. That is how the garbage stays off the new laptop: you never
+# THIS IS THE ALLOWLIST. `make brew` runs `brew bundle install`, then — when
+# homebrew_cleanup is true in group_vars/all.yml — `brew bundle cleanup`, which
+# UNINSTALLS anything on the machine that is not here. That is how the garbage stays off the new laptop: you never
 # migrate it, you just never list it.
 #
 # RULE: if a tool is in mise.toml, it must NOT be here.
@@ -96,7 +96,7 @@ cask "thunderbird"
 cask "gcloud-cli"         # Google Cloud CLI
 cask "proxy-audio-device" # virtual audio device for routing/recording
 # Rectangle is deliberately NOT here: your company's MDM installs it. Listing
-# it would make brew install a second copy, and `brew bundle --cleanup` would
+# it would make brew install a second copy, and `brew bundle cleanup` would
 # then fight the MDM over which one owns /Applications/Rectangle.app.
 # Its *settings* are still managed — see macos_pref_domains in group_vars.
 

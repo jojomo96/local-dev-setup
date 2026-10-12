@@ -21,5 +21,5 @@ collections:
 # homebrew role is good. It is deliberately NOT used here: the role installs
 # the packages you list but cannot express "remove everything not on the list",
 # which is exactly the allowlist behaviour this setup depends on to keep the
-# old laptop's junk off the new one. `brew bundle --cleanup` does that, so the
+# old laptop's junk off the new one. `brew bundle cleanup` does that, so the
 # Brewfile stays the source of truth. See tasks/homebrew.yml.

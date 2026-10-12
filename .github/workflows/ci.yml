@@ -73,7 +73,7 @@ jobs:
       # on this runner is Homebrew's Python, which PEP 668 blocks from
       # installing into. bootstrap.sh builds its own venv and sidesteps both.
       #
-      # The runner ships a large preinstalled brew set; --cleanup would spend
+      # The runner ships a large preinstalled brew set; cleanup would spend
       # the whole job uninstalling it, so stay additive here.
       - name: Bootstrap (run 1)
         run: |
