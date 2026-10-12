@@ -3,8 +3,19 @@ include ./scripts/colors.mk
 PLAYBOOK := main.yml
 SCRIPTS  := ./scripts
 
+# Resolve Ansible: prefer whatever is on PATH (uv installs ansible-core into
+# ~/.local/bin via uv-tools.list), and fall back to the throwaway venv that
+# bootstrap.sh creates before uv exists.
+BOOTSTRAP_VENV := $(HOME)/.local/share/devsetup/bootstrap-venv
+ANSIBLE_PLAYBOOK := $(shell command -v ansible-playbook 2>/dev/null \
+	|| echo $(BOOTSTRAP_VENV)/bin/ansible-playbook)
+ANSIBLE_GALAXY := $(shell command -v ansible-galaxy 2>/dev/null \
+	|| echo $(BOOTSTRAP_VENV)/bin/ansible-galaxy)
+ANSIBLE_VAULT := $(shell command -v ansible-vault 2>/dev/null \
+	|| echo $(BOOTSTRAP_VENV)/bin/ansible-vault)
+
 .PHONY: help bootstrap deps pin-deps check brew dotfiles mise identity macos \
-        doctor update capture lint test vault clean
+        doctor update capture lint test vault clean clean-venv
 
 help:
 	@echo ""
@@ -39,15 +50,15 @@ bootstrap:
 	@./bootstrap.sh
 
 deps:
-	@ansible-galaxy install -r requirements.yml
+	@$(ANSIBLE_GALAXY) install -r requirements.yml
 
 pin-deps:
 	@echo "$(WHITE)Installed collection versions — copy these into requirements.yml:$(RESET)"
-	@ansible-galaxy collection list 2>/dev/null | grep -E '^(community|ansible)\.' || true
+	@$(ANSIBLE_GALAXY) collection list 2>/dev/null | grep -E '^(community|ansible)\.' || true
 
 # ── Dry run and verification ────────────────────────────────────────────────
 check:
-	@ansible-playbook $(PLAYBOOK) --check --diff
+	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --check --diff
 
 doctor: check
 	@chmod +x $(SCRIPTS)/*.sh
@@ -55,19 +66,19 @@ doctor: check
 
 # ── Single areas ────────────────────────────────────────────────────────────
 brew:
-	@ansible-playbook $(PLAYBOOK) --tags brew
+	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags brew
 
 dotfiles:
-	@ansible-playbook $(PLAYBOOK) --tags dotfiles
+	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags dotfiles
 
 mise:
-	@ansible-playbook $(PLAYBOOK) --tags mise
+	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags mise
 
 identity:
-	@ansible-playbook $(PLAYBOOK) --tags identity
+	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags identity
 
 macos:
-	@ansible-playbook $(PLAYBOOK) --tags macos
+	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags macos
 
 # ── Maintenance ─────────────────────────────────────────────────────────────
 update:
@@ -84,7 +95,7 @@ capture:
 	@$(SCRIPTS)/capture.sh
 
 lint:
-	@ansible-playbook $(PLAYBOOK) --syntax-check
+	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --syntax-check
 	@command -v yamllint >/dev/null \
 		&& yamllint . \
 		|| echo "$(YELLOW)yamllint not installed, skipped$(RESET)"
@@ -100,8 +111,20 @@ test:
 	@$(SCRIPTS)/test-in-docker.sh
 
 vault:
-	@ansible-vault edit group_vars/vault.yml
+	@$(ANSIBLE_VAULT) edit group_vars/vault.yml
 
 clean:
 	@rm -rf collections/ captured/ Brewfile.audit
 	@echo "$(GREEN)Removed generated files.$(RESET)"
+
+# The bootstrap venv exists only to run the playbook before uv is available.
+# Once uv-tools.list has installed ansible-core into ~/.local/bin, it's dead
+# weight. Refuses to delete it if that permanent copy isn't there yet.
+clean-venv:
+	@if [ -x "$(HOME)/.local/bin/ansible-playbook" ]; then \
+		rm -rf "$(BOOTSTRAP_VENV)"; \
+		echo "$(GREEN)Removed bootstrap venv; using $(HOME)/.local/bin/ansible-playbook.$(RESET)"; \
+	else \
+		echo "$(YELLOW)Keeping the bootstrap venv: no uv-installed ansible-playbook"; \
+		echo "found in ~/.local/bin. Run 'make mise' first.$(RESET)"; \
+	fi

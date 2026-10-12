@@ -21,11 +21,25 @@ Open `Brewfile.audit`, uncomment only what you actually want to keep, and move
 those lines into `Brewfile`. Everything you leave commented simply never gets
 installed again — that's how the garbage stays behind.
 
-Then work through **[RESET-CHECKLIST.md](RESET-CHECKLIST.md)**: GPG keys, 2FA
-seeds, your KeePass `.kdbx` file, licences, kubeconfigs. The things no script
-can restore.
+Then work through **[RESET-CHECKLIST.md](RESET-CHECKLIST.md)** — 2FA seeds, your
+KeePass `.kdbx` file, licences, kubeconfigs. The things no script can restore.
+It tells you how to check whether each one applies to you rather than assuming.
 
-**On the new machine:** run the curl command above, then `make doctor`.
+**On the new machine:** run the curl command above. It needs no credentials —
+this repo is public and `bootstrap.sh` clones over HTTPS.
+
+Afterwards, the things the playbook can't do for you:
+
+```sh
+# restore ~/.kube/ — nothing can recreate your cluster credentials
+make doctor
+gh auth login     # only needed the first time you push a change back
+```
+
+> **If you ever make this repo private, `bootstrap.sh` breaks.** The HTTPS
+> clone would then need credentials that don't exist yet on a freshly wiped
+> machine. Options if you do: clone it manually after authenticating, keep a
+> copy on a USB stick, or host it somewhere reachable with a deploy token.
 
 ---
 
@@ -80,6 +94,23 @@ scripts/
    where brew is actually shadowing a mise tool.
 2. **The repo owns dotfiles; `$HOME` holds symlinks.** Never hand-edit
    `~/.zshrc` — it points at `dotfiles/zsh/.zshrc`. Edit there and commit.
+
+### How Ansible itself gets installed
+
+Chicken-and-egg: Ansible configures the machine, but nothing is installed yet.
+
+1. `bootstrap.sh` creates a venv at `~/.local/share/devsetup/bootstrap-venv`
+   from the system `python3` (provided by the Xcode CLT) and installs
+   `ansible-core` into it. `venv` is in the standard library, so there's nothing
+   to install first — unlike pipx, which would itself need `pip install --user`.
+   The binary is then called by absolute path, so there's no guessing at
+   `~/Library/Python/<version>/bin`, whose version varies by macOS release.
+2. The playbook installs mise → uv → `ansible-core` (declared in
+   `uv-tools.list`) into `~/.local/bin`, which is the permanent copy.
+3. `make clean-venv` deletes the bootstrap venv once that permanent copy exists.
+
+The Makefile prefers whatever `ansible-playbook` is on `PATH` and falls back to
+the bootstrap venv, so both stages work without you thinking about it.
 
 ### Why Brewfile instead of Ansible variables
 

@@ -25,12 +25,12 @@ FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       curl ca-certificates git zsh make file procps \
-      python3 python3-pip python3-venv \
+      python3 python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-# PEP 668 marks the system Python as externally managed; this is a throwaway
-# container, so installing into it is fine.
-RUN pip3 install --break-system-packages --quiet ansible-core
+# Ansible is deliberately NOT preinstalled. The point is to exercise the real
+# bootstrap path: bootstrap.sh must build its own venv from the system python,
+# exactly as it will on a freshly wiped laptop.
 
 RUN useradd -m -s /bin/zsh tester
 USER tester
@@ -47,21 +47,33 @@ docker run --rm -i "$IMAGE" bash -lc '
     export PATH="$HOME/.local/bin:$PATH"
     export ANSIBLE_FORCE_COLOR=1
 
-    ansible-galaxy install -r requirements.yml
-
     EXTRA="-e configure_homebrew=false -e configure_macos=false \
            -e git_user_name=Test -e git_user_email=test@example.com"
 
-    echo "───── syntax check ─────"
-    ansible-playbook main.yml --syntax-check
+    echo "───── run 1: bootstrap.sh from a bare machine ─────"
+    # No ansible on PATH: this must create the venv and install it itself.
+    ./bootstrap.sh $EXTRA
 
     echo
-    echo "───── run 1: apply ─────"
-    ansible-playbook main.yml $EXTRA
+    echo "───── asserting the bootstrap venv was created ─────"
+    VENV="$HOME/.local/share/devsetup/bootstrap-venv"
+    [ -x "$VENV/bin/ansible-playbook" ] \
+      || { echo "  FAIL bootstrap venv missing at $VENV"; exit 1; }
+    echo "  ok   venv at $VENV"
+
+    # Resolve ansible the same way the Makefile does: prefer the uv-installed
+    # copy, fall back to the bootstrap venv.
+    AP="$HOME/.local/bin/ansible-playbook"
+    [ -x "$AP" ] || AP="$VENV/bin/ansible-playbook"
+    echo "  using $AP"
+
+    echo
+    echo "───── syntax check ─────"
+    "$AP" main.yml --syntax-check
 
     echo
     echo "───── run 2: must report changed=0 ─────"
-    ansible-playbook main.yml $EXTRA | tee /tmp/run2.log
+    "$AP" main.yml $EXTRA | tee /tmp/run2.log
 
     echo
     echo "───── asserting idempotency ─────"
@@ -109,7 +121,7 @@ docker run --rm -i "$IMAGE" bash -lc '
 
     echo
     echo "───── check mode must not error on a configured machine ─────"
-    ansible-playbook main.yml --check --diff $EXTRA >/dev/null
+    "$AP" main.yml --check --diff $EXTRA >/dev/null
     echo "  ok   --check clean"
   '
 

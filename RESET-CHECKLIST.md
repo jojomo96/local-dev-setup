@@ -5,6 +5,10 @@ they **can't** — the things that are gone for good once the disk is erased.
 
 Work top to bottom. The first section is time-critical.
 
+**Start here:** run `make capture` and open `captured/config-inventory.txt`. It
+lists which of the files below actually exist on this machine, so you only work
+through the ones that apply to you instead of guessing.
+
 ---
 
 ## 🔴 BEFORE you wipe — irreversible if skipped
@@ -13,17 +17,21 @@ Work top to bottom. The first section is time-critical.
 - [ ] **Rotate the credentials that were in `zshrc_backup_manual`** — `VAULT_CORE_*`
       and the Stackit `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. They sat in
       plaintext in a stray file; treat them as compromised.
-- [ ] **Export your GPG secret key** — without it, every past signed commit shows
-      as unverified and you can't sign new ones with the same identity:
+- [ ] **Back up `~/.ssh/`** (or accept re-registering a new key everywhere).
+      Note which hosts/services have the old public key. A fresh laptop gets a
+      new key, and GitHub won't recognise it until you upload it — see the
+      `gh ssh-key add` step in the after-reset section.
+- [ ] **GPG secret key — only if you have one.** Check: `gpg --list-secret-keys`
+      If that prints nothing, you've never signed commits. Skip this entirely;
+      nothing will break. If it *does* print a key, export it, because without
+      it every past signed commit shows as unverified:
       ```sh
       gpg --list-secret-keys --keyid-format=long
-      gpg --export-secret-keys --armor <KEYID> > ~/gpg-private.asc   # store in 1Password
+      gpg --export-secret-keys --armor <KEYID> > ~/gpg-private.asc   # store in KeePass
       gpg --export-ownertrust > ~/gpg-ownertrust.txt
       ```
-- [ ] **Back up `~/.ssh/`** (or accept re-registering a new key everywhere).
-      Note which hosts/services have the old public key.
 - [ ] **2FA / authenticator seeds.** If your TOTP codes live only in a desktop
-      app, you will lock yourself out. Move them to a phone or 1Password, and
+      app, you will lock yourself out. Move them to your phone or KeePass, and
       **download fresh recovery codes** for GitHub, cloud consoles, and email.
 - [ ] **Password manager database.** With KeePass the vault is a *file*
       (`.kdbx`) — if it lives only on this disk, erasing it destroys every
@@ -45,11 +53,19 @@ Work top to bottom. The first section is time-critical.
 - [ ] Virtual machines, Vulkan SDK projects, Xcode simulators if you need the state.
 
 ### Things you'll have to re-enter from memory otherwise
-- [ ] Run `make capture` and skim `captured/config-inventory.txt`.
-- [ ] **Kubeconfigs** (`~/.kube/`) — note which clusters, and how each was
-      obtained (`stackit ske kubeconfig create ...`, OIDC, etc.).
-- [ ] **Cloud credentials**: `~/.aws/`, `~/.config/stackit/`, VPN profiles and
-      certificates.
+- [ ] Skim `captured/config-inventory.txt` — it marks each path EXISTS or `-`,
+      so you can ignore anything you don't actually have.
+- [ ] **Kubeconfigs** (`~/.kube/`) — ⚠️ **you have these and nothing can
+      recreate them.** The old setup referenced `core-game.yml` and
+      `dns-nonprd-oidc.json`. Copy the whole directory, and write down how each
+      cluster was obtained (`stackit ske kubeconfig create ...`, OIDC login,
+      handed over by a colleague). Without them `kubectl` and `k9s` reach
+      nothing.
+- [ ] **Cloud credentials**: `~/.config/stackit/`, VPN profiles, certificates.
+      Also `~/.aws/` — but check whether it exists (`ls ~/.aws`): the old setup
+      used `AWS_ACCESS_KEY_ID` environment variables rather than a credentials
+      file, so there may be nothing there to copy. In that case the rotated
+      values just go into `~/.config/devsetup/secrets.env`.
 - [ ] **App licences / activation keys** — JetBrains, Dash, TablePlus, anything
       bought outside the App Store. Screenshot the licence screens.
 - [ ] **Browser**: make sure bookmarks, passwords and profiles are synced, and
@@ -83,11 +99,25 @@ Work top to bottom. The first section is time-critical.
        ```sh
        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jojomo96/local-dev-setup/main/bootstrap.sh)"
        ```
-5. [ ] `gh auth login`, then `gh ssh-key add ~/.ssh/id_ed25519.pub`.
-6. [ ] Import GPG key: `gpg --import ~/gpg-private.asc && gpg --import-ownertrust ~/gpg-ownertrust.txt`,
+5. [ ] **GitHub auth** — not needed to clone or bootstrap (this repo is public
+       and `bootstrap.sh` clones over HTTPS). You need it the first time you
+       want to *push* a change back, e.g. after adding a package to the
+       Brewfile. `gh auth login` configures git's credential helper, which is
+       enough on its own:
+       ```sh
+       gh auth login
+       ```
+       Optional, only if you prefer SSH remotes over HTTPS:
+       ```sh
+       gh ssh-key add ~/.ssh/id_ed25519.pub --title "$(hostname -s)"
+       ```
+6. [ ] GPG — **skip unless you exported a key earlier.** If you did:
+       `gpg --import ~/gpg-private.asc && gpg --import-ownertrust ~/gpg-ownertrust.txt`,
        then `make identity` to wire up signing.
-7. [ ] Restore `~/.kube/`, `~/.aws/`, `~/.config/stackit/` — or re-create them
-       with `stackit auth login` and fresh, short-lived credentials.
+7. [ ] Restore `~/.kube/` (required for any cluster work) and
+       `~/.config/stackit/`. Prefer re-creating them with `stackit auth login`
+       and fresh short-lived credentials over copying long-lived keys across.
+       Verify with `kubectl config get-contexts`.
 8. [ ] Fill in `~/.config/devsetup/secrets.env` with the **rotated** values.
 9. [ ] `make doctor` — resolve every failure before you start working.
 10. [ ] Sign in to Slack, Docker Hub, JetBrains; re-enable IDE settings sync.

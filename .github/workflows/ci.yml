@@ -61,23 +61,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Ansible and collections
-        run: |
-          pip3 install --quiet ansible-core
-          ansible-galaxy install -r requirements.yml
-
+      # Runs bootstrap.sh rather than pip-installing Ansible, for two reasons:
+      # it tests the exact command a user types on a fresh laptop, and `pip3`
+      # on this runner is Homebrew's Python, which PEP 668 blocks from
+      # installing into. bootstrap.sh builds its own venv and sidesteps both.
+      #
       # The runner ships a large preinstalled brew set; --cleanup would spend
-      # the whole job uninstalling it. Install additively instead.
-      - name: Run the playbook
+      # the whole job uninstalling it, so stay additive here.
+      - name: Bootstrap (run 1)
         run: |
-          ansible-playbook main.yml \
+          ./bootstrap.sh \
             -e homebrew_cleanup=false \
             -e git_user_name=CI \
             -e git_user_email=ci@example.com
 
+      - name: Resolve the ansible-playbook binary
+        run: |
+          VENV="$HOME/.local/share/devsetup/bootstrap-venv"
+          AP="$HOME/.local/bin/ansible-playbook"
+          [ -x "$AP" ] || AP="$VENV/bin/ansible-playbook"
+          [ -x "$AP" ] || { echo "::error::no ansible-playbook found"; exit 1; }
+          echo "ANSIBLE_PLAYBOOK=$AP" >> "$GITHUB_ENV"
+          echo "using $AP"
+
       - name: Re-run and assert idempotency
         run: |
-          ansible-playbook main.yml \
+          "$ANSIBLE_PLAYBOOK" main.yml \
             -e homebrew_cleanup=false \
             -e git_user_name=CI \
             -e git_user_email=ci@example.com | tee run2.log
@@ -106,7 +115,7 @@ jobs:
 
       - name: Check mode must be clean on a configured machine
         run: |
-          ansible-playbook main.yml --check --diff \
+          "$ANSIBLE_PLAYBOOK" main.yml --check --diff \
             -e homebrew_cleanup=false \
             -e git_user_name=CI \
             -e git_user_email=ci@example.com
