@@ -126,6 +126,51 @@ step "Config inventory (paths only — contents may hold secrets)"
 } > "$OUT/config-inventory.txt"
 ok "captured/config-inventory.txt"
 
+# ── Dotfiles: what could this repo be managing that it isn't? ───────────────
+step "Dotfile inventory (what's managed vs. what's loose)"
+{
+  echo "# Dotfiles on this machine, grouped by what you should do with them."
+  echo "# Generated $(date '+%Y-%m-%d %H:%M')"
+  echo
+
+  echo "## ALREADY MANAGED by this repo (symlinks into the repo)"
+  for p in ~/.zshrc ~/.zshenv ~/.gitconfig ~/.gitignore_global \
+           ~/.config/mise/config.toml; do
+    if [[ -L "$p" ]]; then
+      printf '  %-34s -> %s\n' "$(pretty_path "$p")" "$(readlink "$p")"
+    elif [[ -e "$p" ]]; then
+      printf '  %-34s %s\n' "$(pretty_path "$p")" "EXISTS BUT NOT A SYMLINK (run make dotfiles)"
+    fi
+  done
+
+  echo
+  echo "## CANDIDATES — plain config, safe to move into dotfiles/ and version"
+  for p in ~/.tmux.conf ~/.ripgreprc ~/.editorconfig ~/.inputrc ~/.vimrc \
+           ~/.config/bat/config ~/.config/direnv/direnvrc ~/.config/k9s \
+           ~/.config/nvim ~/.config/gh/config.yml ~/.terraformrc \
+           ~/.oh-my-zsh/custom ~/.zprofile ~/.zshrc.local \
+           "$HOME/Library/Application Support/Code/User/settings.json" \
+           "$HOME/Library/Application Support/Code/User/keybindings.json"; do
+    [[ -e "$p" ]] && printf '  %-44s (%s)\n' "$(pretty_path "$p")" \
+      "$(du -sh "$p" 2>/dev/null | cut -f1)"
+  done
+
+  echo
+  echo "## DO NOT VERSION — these contain credentials or machine state"
+  for p in ~/.ssh/config ~/.netrc ~/.npmrc ~/.pypirc ~/.docker/config.json \
+           ~/.config/gh/hosts.yml ~/.aws ~/.kube ~/.config/stackit \
+           ~/.terraform.d/credentials.tfrc.json; do
+    [[ -e "$p" ]] && printf '  %-44s (%s)\n' "$(pretty_path "$p")" \
+      "$(du -sh "$p" 2>/dev/null | cut -f1)"
+  done
+
+  echo
+  echo "## EVERYTHING ELSE in \$HOME (top level, for anything missed above)"
+  find "$HOME" -maxdepth 1 -name '.*' \( -type f -o -type l \) 2>/dev/null \
+    | sort | while read -r p; do printf '  %s\n' "$(pretty_path "$p")"; done
+} > "$OUT/dotfiles-inventory.txt"
+ok "captured/dotfiles-inventory.txt"
+
 # ── Repos with uncommitted work: the classic data-loss trap ─────────────────
 step "Scanning for git repos with uncommitted or unpushed work"
 info "(searching ~ to depth 5, this can take a minute)"
