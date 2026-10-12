@@ -56,6 +56,15 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 
+# GNU coreutils ahead of the BSD tools macOS ships, so ls/date/sed/readlink
+# behave the way they do everywhere else. Requires brew "coreutils".
+# Deliberately placed before the mise activation below, so mise's shims still
+# win for anything it manages.
+if [[ -d "$HOMEBREW_PREFIX/opt/coreutils/libexec/gnubin" ]]; then
+  export PATH="$HOMEBREW_PREFIX/opt/coreutils/libexec/gnubin:$PATH"
+  export MANPATH="$HOMEBREW_PREFIX/opt/coreutils/libexec/gnuman:${MANPATH:-}"
+fi
+
 # --- Environment -------------------------------------------------------------
 export LANG="en_US.UTF-8"
 export EDITOR="${EDITOR:-code --wait}"
@@ -66,11 +75,19 @@ export PAGER="less"
 export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 
 # --- Kubernetes --------------------------------------------------------------
-# Build KUBECONFIG from everything in ~/.kube, rather than hardcoding cluster
-# filenames (those change per project and break after a laptop reset).
+# Build KUBECONFIG by discovery rather than hardcoding cluster filenames
+# (those change per project and break after a laptop reset).
+#
+# Covers both layouts: configs directly in ~/.kube, and the ~/.kube/configs/
+# subdirectory. NOT a blind recursive glob — ~/.kube/cache and
+# ~/.kube/http-cache are full of .json discovery documents that would
+# otherwise end up in KUBECONFIG and break kubectl.
 if [[ -d "$HOME/.kube" ]]; then
   typeset -a _kubeconfigs
-  _kubeconfigs=("$HOME"/.kube/*.(yml|yaml|json)(N))
+  _kubeconfigs=(
+    "$HOME"/.kube/*.(yml|yaml|json)(N)
+    "$HOME"/.kube/configs/**/*.(yml|yaml|json)(N)
+  )
   (( ${#_kubeconfigs} )) && export KUBECONFIG="${(j|:|)_kubeconfigs}"
   unset _kubeconfigs
 fi
@@ -105,12 +122,14 @@ catall() {
 # Run the cs-toolbox privilege escalation helper.
 # Override the checkout location with CS_TOOLBOX_ROOT in ~/.zshrc.local.
 kubectl-escalate() {
-  local proj_root="${CS_TOOLBOX_ROOT:-$HOME/GolandProjects/cs-toolbox}"
-  if [[ ! -d "$proj_root" ]]; then
-    echo "cs-toolbox not found at $proj_root (set CS_TOOLBOX_ROOT)" >&2
+  local proj_dir="${CS_TOOLBOX_ROOT:-$HOME/GolandProjects/cs-toolbox}/k8s/escalate-privileges"
+  if [[ ! -d "$proj_dir" ]]; then
+    echo "cs-toolbox not found at $proj_dir (set CS_TOOLBOX_ROOT)" >&2
     return 1
   fi
-  go run "$proj_root/k8s/escalate-privileges/kubectl-escalate.go" "$@"
+  # `go -C` runs from the module directory so go.mod resolves. Passing an
+  # absolute path to `go run` instead fails once the file has imports.
+  go -C "$proj_dir" run kubectl-escalate.go "$@"
 }
 
 # --- Tool activation ---------------------------------------------------------
