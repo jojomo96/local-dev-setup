@@ -26,6 +26,7 @@ brew "git"
 brew "git-lfs"
 brew "gh"                 # GitHub CLI — also used for `gh auth login`
 brew "coreutils"          # GNU versions; macOS ships ancient BSD tools
+brew "gnu-tar"            # same reason: BSD tar differs in flags and output
 brew "curl"
 brew "wget"
 brew "openssh"            # required for FIDO2 hardware keys — see note below
@@ -53,10 +54,13 @@ brew "tmux"
 
 # ══ CLI: dev ═════════════════════════════════════════════════════════════════
 brew "make"
-brew "cmake"
 brew "shellcheck"         # CI lints this repo's scripts with it
 brew "jd"                 # json diff
 brew "mkcert"             # local TLS certs
+brew "ipcalc"             # subnet maths
+brew "git-quick-stats"    # repo contribution summaries
+# cmake/glm/glfw/nasm removed: that was the Vulkan toolchain, no longer needed.
+# golangci-lint is in mise.toml so it tracks the Go version — not here.
 # NOTE: httpie, pre-commit, ruff, black, mypy, ipython and ansible are Python
 # tools and belong to uv — see uv-tools.list. Do not add them here.
 
@@ -66,22 +70,38 @@ brew "stern"              # multi-pod log tailing
 brew "kustomize"
 
 # ══ GUI apps ═════════════════════════════════════════════════════════════════
-cask "docker-desktop"     # container runtime (consider `colima` as a lighter alt)
-cask "visual-studio-code"
-cask "goland"             # your Go IDE — JetBrains Toolbox also works
-cask "jetbrains-toolbox"
+# Confirmed present on the old laptop:
 cask "iterm2"
-cask "rectangle"          # window snapping
 cask "raycast"            # spotlight replacement
+cask "alt-tab"            # Windows-style window switcher
+cask "jordanbaird-ice"    # menu bar manager
+cask "grandperspective"   # visual disk usage
+cask "spotify"
+cask "thunderbird"
+
+# Added by this setup:
 cask "keepassxc"          # password manager; ships keepassxc-cli for scripting
 cask "secretive"          # SSH keys in the Secure Enclave, gated by Touch ID
 # NOTE: brew "openssh" above is required for FIDO2/hardware keys (Token2,
 # YubiKey) — Apple's /usr/bin/ssh is built without libfido2, so
 # `ssh-keygen -t ed25519-sk` fails with it.
 
+# NOT listed, because your old laptop had no cask for them — if these came
+# from your company's MDM or JetBrains Toolbox, leave them out; if you
+# installed them by hand, uncomment:
+# cask "docker-desktop"
+# cask "visual-studio-code"
+# cask "goland"
+# cask "jetbrains-toolbox"
+# cask "rectangle"        # window snapping (alt-tab covers switching, not snapping)
+# NOTE: brew "openssh" above is required for FIDO2/hardware keys (Token2,
+# YubiKey) — Apple's /usr/bin/ssh is built without libfido2, so
+# `ssh-keygen -t ed25519-sk` fails with it.
+
 # ══ Fonts ════════════════════════════════════════════════════════════════════
-cask "font-jetbrains-mono-nerd-font"   # nerd font: needed for powerline/k9s glyphs
-cask "font-fira-code-nerd-font"
+# This is the font actually installed on the old laptop; the jetbrains-mono and
+# fira-code nerd fonts previously listed here were guesses.
+cask "font-caskaydia-cove-nerd-font"
 
 # ══ Mac App Store (needs `mas` + being signed in) ════════════════════════════
 # brew "mas"

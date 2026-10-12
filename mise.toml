@@ -32,6 +32,15 @@ python = "3.12"
 node = "lts"             # replaces nvm — see README "What changed"
 uv = "latest"
 
+# --- 🐹 Go tooling ---
+# golangci-lint belongs with the Go toolchain, not in brew: a lint run fails
+# with "export data version" errors whenever it's older than the compiler, so
+# the two need to move together.
+golangci-lint = "latest"
+
+# --- 📦 Node ecosystem ---
+pnpm = "latest"          # was a brew install; node is already managed here
+
 # --- 🛠️ Utilities ---
 jq = "latest"
 yq = "latest"
