@@ -13,9 +13,15 @@
   register: mise_installed
 
 - name: Install mise
+  # curl|sh is the upstream install mechanism, so there's no get_url
+  # equivalent. pipefail matters: without it the exit status is `sh`'s, so a
+  # failed download would look like success and leave no mise behind.
   ansible.builtin.shell:
-    cmd: "curl -fsSL https://mise.run | sh"
+    cmd: |
+      set -o pipefail
+      curl -fsSL https://mise.run | sh
     creates: "{{ mise_bin }}"
+    executable: /bin/bash
   when: not mise_installed.stat.exists
 
 - name: Confirm the global mise config is linked to this repo
@@ -33,6 +39,7 @@
 - name: Determine which tools are missing
   ansible.builtin.command:
     cmd: "{{ mise_bin }} ls --missing --json"
+  environment: "{{ mise_env }}"
   register: mise_missing
   changed_when: false
   failed_when: false
@@ -41,17 +48,74 @@
 - name: Install mise-managed tools
   ansible.builtin.command:
     cmd: "{{ mise_bin }} install --yes"
+  environment: "{{ mise_env }}"
   register: mise_install
   # Without an explicit changed_when this reports "changed" on every run even
   # when every tool is already present.
   changed_when: >-
     'Installing' in (mise_install.stderr | default(''))
     or 'Installing' in (mise_install.stdout | default(''))
+  # Deliberately NOT fatal. `mise install` fails the whole batch if any single
+  # tool fails, and the most likely cause is an upstream module rename in one
+  # of the `go:` entries — which shouldn't block the entire laptop setup. The
+  # next task decides what actually matters.
+  failed_when: false
   when: mise_missing.stdout | default('{}') | trim not in ['{}', '[]', '']
+
+- name: Report a GitHub rate limit
+  # The most likely cause of a failed install is not a broken config at all:
+  # mise resolves versions via the GitHub API, which allows 60 requests/hour
+  # unauthenticated. Worth naming explicitly, because the fix is "wait or set
+  # a token", not "debug mise.toml".
+  ansible.builtin.debug:
+    msg:
+      - "mise hit the GitHub API rate limit (60/hour unauthenticated)."
+      - "Either wait for the reset, or set a token and re-run:"
+      - "  export GITHUB_TOKEN=<any token, no scopes needed>"
+      - "  make mise"
+      - "Pinning versions in mise.toml instead of 'latest' avoids most of"
+      - "these lookups entirely."
+  when:
+    - mise_install is defined
+    - mise_install.rc | default(0) != 0
+    - "'rate limit' in (mise_install.stderr | default('')) | lower"
+
+- name: Report tools that failed to install
+  ansible.builtin.debug:
+    msg:
+      - "Some mise tools failed to install. A common cause is an upstream"
+      - "module path that moved — check the `go:` entries in mise.toml:"
+      - "{{ (mise_install.stderr | default('')) | regex_findall('Failed to install tools:.*') }}"
+  when:
+    - mise_install is defined
+    - mise_install.rc | default(0) != 0
+    - "'rate limit' not in (mise_install.stderr | default('')) | lower"
+
+- name: Verify the tools that actually matter are present
+  # The real gate: a missing gopls is an annoyance, a missing go or kubectl
+  # means the machine isn't usable. Declared explicitly rather than parsed out
+  # of mise's output, so it can't break when that output format changes.
+  ansible.builtin.command:
+    cmd: "{{ mise_bin }} which {{ item }}"
+  loop: "{{ mise_required_tools }}"
+  register: mise_required_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Fail when a required tool is missing
+  ansible.builtin.fail:
+    msg: >-
+      These required tools are missing after `mise install`:
+      {{ mise_required_check.results | selectattr('rc', 'ne', 0)
+         | map(attribute='item') | list }}.
+      Fix mise.toml, then re-run `make mise`.
+  when: mise_required_check.results | selectattr('rc', 'ne', 0) | list | length > 0
 
 - name: Install Python CLI tools via uv
   ansible.builtin.command:
     cmd: "{{ mise_bin }} run install-uv-tools"
+  environment: "{{ mise_env }}"
   register: uv_tools
   # The mise task deliberately omits `uv tool install --force`, so uv prints
   # "already installed" and this stays genuinely idempotent. Upgrades are a
@@ -59,4 +123,20 @@
   changed_when: >-
     'Installed' in (uv_tools.stdout | default(''))
     or 'Installed' in (uv_tools.stderr | default(''))
+  # Non-fatal, for a non-obvious reason: `mise run <task>` resolves the WHOLE
+  # toolset before running the task, so an unrelated tool that can't be
+  # resolved (a rate-limited awscli@latest, say) kills this step even though
+  # uv and python are already installed and fine.
+  failed_when: false
+  tags: [uv]
+
+- name: Report uv tool failures
+  ansible.builtin.debug:
+    msg:
+      - "`mise run install-uv-tools` failed. Note that mise resolves every"
+      - "tool in mise.toml before running a task, so this is often caused by"
+      - "an unrelated entry rather than by uv itself."
+      - "Re-run with: make mise"
+      - "{{ (uv_tools.stderr | default('')) | regex_findall('ERROR.*') | first | default('') }}"
+  when: uv_tools.rc | default(0) != 0
   tags: [uv]

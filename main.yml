@@ -47,7 +47,7 @@
 
     # Must precede the dotfile links: the managed .zshrc sources
     # $ZSH/oh-my-zsh.sh, so a shell opened before oh-my-zsh exists errors out.
-    - name: oh-my-zsh
+    - name: Install oh-my-zsh and custom plugins
       ansible.builtin.import_tasks: tasks/omz.yml
       when: configure_omz | bool
       tags: [omz, zsh]
@@ -59,14 +59,14 @@
 
     # Must follow dotfiles: ~/.config/mise/config.toml is a symlink created
     # there, and `mise install` reads it.
-    - name: mise runtimes and uv tools
+    - name: Install mise runtimes and uv tools
       ansible.builtin.import_tasks: tasks/mise.yml
       when: configure_mise | bool
       tags: [mise, tools]
 
     # GUI app preferences. Imported once per machine; see the task file for
     # why this isn't applied on every run.
-    - name: GUI app preferences
+    - name: Import GUI app preferences
       ansible.builtin.import_tasks: tasks/macos-prefs.yml
       when:
         - configure_prefs | bool
@@ -75,7 +75,7 @@
 
     # Config files only — needs nothing installed, so it runs alongside the
     # other dotfiles rather than waiting on mise.
-    - name: k9s skins and context config
+    - name: Link k9s skins and seed context config
       ansible.builtin.import_tasks: tasks/k9s.yml
       when:
         - configure_k9s | bool
@@ -83,7 +83,7 @@
       tags: [k9s, dotfiles]
 
     # Must follow mise: needs kubectl, krew, helm and pnpm to exist.
-    - name: krew plugins, helm repos, pnpm globals
+    - name: Install krew plugins, helm repos and pnpm globals
       ansible.builtin.import_tasks: tasks/k8s-plugins.yml
       when: configure_plugins | bool
       tags: [plugins, k8s]
@@ -93,7 +93,7 @@
       when: configure_identity | bool
       tags: [identity]
 
-    - name: macOS system preferences
+    - name: Apply macOS system preferences
       ansible.builtin.import_tasks: tasks/macos.yml
       when:
         - configure_macos | bool

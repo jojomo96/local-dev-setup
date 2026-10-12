@@ -3,6 +3,11 @@ exclude_paths:
   - collections/
   - captured/
   - .github/
+  # dotfiles/ holds files owned by the apps that read them — k9s skins and
+  # context configs, written by k9s itself. Linting them for playbook
+  # conventions (document-start markers and so on) is meaningless, and
+  # "fixing" them could break the app.
+  - dotfiles/
 
 skip_list:
   # This playbook targets localhost only; `become` is deliberately unused and
@@ -11,9 +16,11 @@ skip_list:
 
 warn_list:
   - experimental
+  # The Homebrew, oh-my-zsh and mise installers are curl|sh by upstream
+  # design — there is no get_url equivalent, since the script is the install
+  # mechanism. Each task carries explicit changed_when/creates guards so
+  # idempotency is preserved regardless.
+  - command-instead-of-module
 
-# The Homebrew and oh-my-zsh installers are curl|sh by upstream design, and
-# mise.run likewise. command/shell is the correct module for them; the tasks
-# carry explicit changed_when/creates guards so idempotency is preserved.
 enable_list:
   - fqcn-builtins

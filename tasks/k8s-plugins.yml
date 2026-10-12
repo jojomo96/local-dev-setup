@@ -70,25 +70,37 @@
   changed_when: true
 
 # ── pnpm globals ────────────────────────────────────────────────────────────
-- name: List global pnpm packages
+- name: Find the global pnpm root
+  # Checking for the package directory is format-independent. Substring-
+  # matching `pnpm ls -g --json` looked fine but silently never matched, so
+  # the install task re-ran on every pass and broke idempotency.
   ansible.builtin.command:
-    cmd: "{{ mise_bin }} exec -- pnpm ls -g --depth=0 --json"
-  register: pnpm_existing
+    cmd: "{{ mise_bin }} exec -- pnpm root -g"
+  register: pnpm_root
   changed_when: false
   failed_when: false
   check_mode: false
   environment:
     PNPM_HOME: "{{ ansible_env.HOME }}/Library/pnpm"
 
+- name: Check which global pnpm packages are already installed
+  ansible.builtin.stat:
+    path: "{{ pnpm_root.stdout | trim }}/{{ item }}"
+  loop: "{{ pnpm_global_packages | default([]) }}"
+  register: pnpm_pkg_state
+  changed_when: false
+  when: pnpm_root.rc == 0
+
 - name: Install global pnpm packages
   ansible.builtin.command:
-    cmd: "{{ mise_bin }} exec -- pnpm add -g {{ item }}"
-  loop: "{{ pnpm_global_packages | default([]) }}"
-  register: pnpm_add
-  changed_when: "'Already up to date' not in (pnpm_add.stdout | default(''))"
-  failed_when: false
+    cmd: "{{ mise_bin }} exec -- pnpm add -g {{ item.item }}"
+  loop: "{{ pnpm_pkg_state.results }}"
+  loop_control:
+    label: "{{ item.item }}"
   environment:
     PNPM_HOME: "{{ ansible_env.HOME }}/Library/pnpm"
+  # `item.stat` is absent when the check above was skipped, hence the default.
   when:
-    - pnpm_existing.rc == 0
-    - item not in (pnpm_existing.stdout | default(''))
+    - pnpm_root.rc == 0
+    - not (item.stat.exists | default(false))
+  changed_when: true

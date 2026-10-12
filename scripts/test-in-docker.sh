@@ -42,7 +42,18 @@ step "Running the playbook twice"
 info "Homebrew and macOS tasks are skipped (Linux)."
 echo
 
-docker run --rm -i "$IMAGE" bash -lc '
+# mise resolves tool versions through the GitHub API: 60 requests/hour per IP
+# unauthenticated, which a full install can exhaust — and re-running the test a
+# few times certainly will. Pass a token through if one is available; `gh auth
+# token` works if you're logged in. Any token will do, no scopes needed.
+GH_TOKEN_VALUE="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null || echo "")}"
+if [[ -z "$GH_TOKEN_VALUE" ]]; then
+  warn "No GITHUB_TOKEN and no gh login — mise will make unauthenticated"
+  warn "GitHub API calls (60/hour). If this fails with a 403 rate limit, set"
+  warn "GITHUB_TOKEN and re-run; it is not a problem with the playbook."
+fi
+
+docker run --rm -i -e GITHUB_TOKEN="$GH_TOKEN_VALUE" "$IMAGE" bash -lc '
     set -euo pipefail
     export PATH="$HOME/.local/bin:$PATH"
     export ANSIBLE_FORCE_COLOR=1
@@ -77,10 +88,20 @@ docker run --rm -i "$IMAGE" bash -lc '
 
     echo
     echo "───── asserting idempotency ─────"
-    recap=$(grep -E "^localhost *:" /tmp/run2.log || true)
+    # Strip ANSI codes first: ANSIBLE_FORCE_COLOR makes the recap line start
+    # with an escape sequence, so "^localhost" silently never matches and the
+    # assertion reports an empty recap instead of a real result.
+    recap=$(sed -e "s/\x1b\[[0-9;]*m//g" /tmp/run2.log | grep -E "^localhost +:" || true)
+    if [ -z "$recap" ]; then
+      echo "  FAIL could not find the PLAY RECAP line — assertion is broken"
+      exit 1
+    fi
     echo "  recap: $recap"
     if ! echo "$recap" | grep -q "changed=0"; then
       echo "  FAIL second run was not idempotent"
+      echo "  Tasks that changed on the second run:"
+      sed -e "s/\x1b\[[0-9;]*m//g" /tmp/run2.log \
+        | grep -B1 "^changed:" | grep "^TASK" || true
       exit 1
     fi
     echo "  ok   second run changed nothing"

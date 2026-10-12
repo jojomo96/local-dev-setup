@@ -195,6 +195,34 @@ macos_app_defaults:
   - { domain: com.jetbrains.goland, key: ApplePressAndHoldEnabled, type: bool, value: false }
   - { domain: com.apple.Terminal, key: ApplePressAndHoldEnabled, type: bool, value: false }
 
+# ── Tools that must exist for the machine to be usable ──────────────────────
+# `mise install` fails the whole batch if any one tool fails, and the usual
+# cause is an upstream module rename in a `go:` entry. A missing gopls is an
+# annoyance; a missing go or kubectl means the laptop doesn't work. Only these
+# abort the playbook.
+mise_required_tools:
+  - go
+  - python
+  - node
+  - uv
+  - kubectl
+  - helm
+  - terraform
+  - jq
+  - yq
+
+# ── Environment passed to mise ──────────────────────────────────────────────
+# mise resolves tool versions via the GitHub API. Unauthenticated, that's 60
+# requests per hour per IP — and installing ~24 tools can exhaust it, which
+# fails the bootstrap with a 403 until the hour rolls over.
+#
+# Passed through only when GITHUB_TOKEN is actually set, so mise never sees an
+# empty value. Any token works; no scopes are required.
+#   export GITHUB_TOKEN="$(gh auth token)"   # if gh is already logged in
+mise_env: >-
+  {{ {'GITHUB_TOKEN': lookup('env', 'GITHUB_TOKEN')}
+     if lookup('env', 'GITHUB_TOKEN') | length > 0 else {} }}
+
 # ── Paths ───────────────────────────────────────────────────────────────────
 mise_bin: "{{ ansible_env.HOME }}/.local/bin/mise"
 secrets_dir: "{{ ansible_env.HOME }}/.config/devsetup"

@@ -17,7 +17,19 @@
     msg: >-
       git_user_name / git_user_email are empty in group_vars/all.yml — skipping
       git identity. Commits will fail until you set them.
-  when: not (git_user_name | length and git_user_email | length)
+  # `| length` yields an int, and ansible-core 2.19+ rejects non-boolean
+  # conditionals. `not (int)` coerces and happens to work, but the same
+  # pattern without `not` does not — so both are written explicitly.
+  when: git_user_name | length == 0 or git_user_email | length == 0
+
+- name: Ensure the git config directory exists
+  # `copy` does not create parent directories, and ~/.config/git is absent on
+  # a fresh machine. The managed ~/.gitconfig includes a file from here, so
+  # this has to exist before anything writes into it.
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.config/git"
+    state: directory
+    mode: "0755"
 
 - name: Write the git identity include file
   ansible.builtin.copy:
@@ -28,7 +40,7 @@
       [user]
       	name = {{ git_user_name }}
       	email = {{ git_user_email }}
-  when: git_user_name | length and git_user_email | length
+  when: git_user_name | length > 0 and git_user_email | length > 0
 
 # ── SSH ─────────────────────────────────────────────────────────────────────
 # This playbook deliberately does NOT generate SSH keys or write ~/.ssh/config.

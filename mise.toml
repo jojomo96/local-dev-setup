@@ -48,8 +48,11 @@ golangci-lint = "latest"
 "go:golang.org/x/tools/gopls" = "latest"
 "go:honnef.co/go/tools/cmd/staticcheck" = "latest"
 "go:go.uber.org/mock/mockgen" = "latest"
-"go:github.com/volatiletech/sqlboiler/v4" = "latest"
-"go:github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql" = "latest"
+# sqlboiler moved from volatiletech to aarondl. The old path fails with
+# "module declares its path as: github.com/aarondl/sqlboiler/v4 but was
+# required as: github.com/volatiletech/sqlboiler/v4" — caught by `make test`.
+"go:github.com/aarondl/sqlboiler/v4" = "latest"
+"go:github.com/aarondl/sqlboiler/v4/drivers/sqlboiler-psql" = "latest"
 "go:github.com/jstemmer/go-junit-report/v2" = "latest"
 "go:github.com/boumenot/gocover-cobertura" = "latest"
 

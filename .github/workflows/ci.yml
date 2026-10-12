@@ -53,11 +53,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run the playbook twice and assert changed=0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: make test
 
   macos:
     name: playbook (macos)
     runs-on: macos-latest
+    # mise resolves tool versions via the GitHub API: 60 req/hour per IP
+    # unauthenticated, which installing ~24 tools can exhaust. The runner
+    # token lifts that to 1000/hour and needs no extra configuration.
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -91,10 +98,17 @@ jobs:
             -e git_user_name=CI \
             -e git_user_email=ci@example.com | tee run2.log
 
-          recap=$(grep -E '^localhost *:' run2.log || true)
+          # Strip ANSI before matching: a coloured recap line doesn't start
+          # with "localhost", so the grep would silently find nothing.
+          recap=$(sed -e 's/\x1b\[[0-9;]*m//g' run2.log | grep -E '^localhost +:' || true)
+          if [ -z "$recap" ]; then
+            echo "::error::Could not find the PLAY RECAP line — assertion is broken"
+            exit 1
+          fi
           echo "recap: $recap"
           if ! echo "$recap" | grep -q 'changed=0'; then
-            echo "::error::Second run was not idempotent — see run2.log"
+            echo "::error::Second run was not idempotent"
+            sed -e 's/\x1b\[[0-9;]*m//g' run2.log | grep -B1 '^changed:' | grep '^TASK' || true
             exit 1
           fi
 

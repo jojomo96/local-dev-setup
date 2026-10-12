@@ -11,8 +11,12 @@ rules:
   truthy:
     allowed-values: ["true", "false", "yes", "no"]
     check-keys: false
-  comments:
-    min-spaces-from-content: 1
+  # Required false by ansible-lint, which refuses a config that enables it.
+  comments-indentation: false
+  # Also required by ansible-lint: an unquoted 0644 is a surprising octal.
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
   # The inline-dict style used in group_vars/all.yml for macos_defaults is
   # deliberate: one setting per line is far more readable than expanded maps.
   braces:
@@ -22,3 +26,4 @@ ignore: |
   collections/
   captured/
   .github/
+  dotfiles/

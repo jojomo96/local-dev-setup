@@ -115,12 +115,15 @@ capture:
 
 lint:
 	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --syntax-check
-	@command -v yamllint >/dev/null \
-		&& yamllint . \
-		|| echo "$(YELLOW)yamllint not installed, skipped$(RESET)"
-	@command -v ansible-lint >/dev/null \
-		&& ansible-lint \
-		|| echo "$(YELLOW)ansible-lint not installed, skipped$(RESET)"
+	@# `cmd && cmd2 || echo skipped` cannot tell "not installed" from "ran and
+	@# failed" — it swallowed 13 real ansible-lint violations and still printed
+	@# "lint clean". Check for the tool and its exit status separately.
+	@if command -v yamllint >/dev/null; then \
+		yamllint . || exit 1; \
+	else echo "$(YELLOW)yamllint not installed, skipped$(RESET)"; fi
+	@if command -v ansible-lint >/dev/null; then \
+		ansible-lint || exit 1; \
+	else echo "$(YELLOW)ansible-lint not installed, skipped$(RESET)"; fi
 	@$(SCRIPTS)/check-duplicates.sh
 	@for f in $(SCRIPTS)/*.sh ./bootstrap.sh; do bash -n "$$f" || exit 1; done
 	@echo "$(GREEN)lint clean$(RESET)"
