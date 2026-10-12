@@ -1,10 +1,23 @@
 # local-dev-setup
 
 Ansible-managed macOS development laptop: Homebrew apps, mise-managed runtimes,
-repo-owned dotfiles, macOS system preferences. One command on a fresh machine.
+repo-owned dotfiles, macOS system preferences.
+
+One command on a freshly reset machine:
 
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jojomo96/local-dev-setup/main/bootstrap.sh)"
+```
+
+`curl` fetches just this one script's text; `bash` runs it from memory and it
+clones the repo itself into `~/local-dev-setup`. Nothing needs to exist first.
+
+Equivalent, if you'd rather see what you're running before you run it:
+
+```sh
+git clone https://github.com/jojomo96/local-dev-setup.git
+cd local-dev-setup
+./bootstrap.sh
 ```
 
 ---
@@ -25,8 +38,12 @@ Then work through **[RESET-CHECKLIST.md](RESET-CHECKLIST.md)** — 2FA seeds, yo
 KeePass `.kdbx` file, licences, kubeconfigs. The things no script can restore.
 It tells you how to check whether each one applies to you rather than assuming.
 
-**On the new machine:** run the curl command above. It needs no credentials —
-this repo is public and `bootstrap.sh` clones over HTTPS.
+**On the new machine:** either command at the top. Neither needs credentials
+while the repo is public.
+
+> **If you make this repo private, the one-liner breaks** — its HTTPS clone
+> would need credentials that don't exist yet on a bare machine. Use the
+> clone-first path after `gh auth login`, or clone over SSH.
 
 Afterwards, the things the playbook can't do for you:
 
@@ -35,11 +52,6 @@ Afterwards, the things the playbook can't do for you:
 make doctor
 gh auth login     # only needed the first time you push a change back
 ```
-
-> **If you ever make this repo private, `bootstrap.sh` breaks.** The HTTPS
-> clone would then need credentials that don't exist yet on a freshly wiped
-> machine. Options if you do: clone it manually after authenticating, keep a
-> copy on a USB stick, or host it somewhere reachable with a deploy token.
 
 ---
 
@@ -63,7 +75,7 @@ gh auth login     # only needed the first time you push a change back
 ## Layout
 
 ```
-bootstrap.sh          the ONLY imperative code: gets Python + Ansible, hands over
+bootstrap.sh          the ONLY imperative code: CLT check, venv + Ansible, hand over
 main.yml              the playbook
 group_vars/all.yml    single place to configure this machine
 requirements.yml      Ansible collections

@@ -2,18 +2,30 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # bootstrap.sh — the only imperative code in this repo.
 #
-# Ansible can't configure a machine that doesn't have Ansible, so this shim
-# gets Python + Ansible in place and then hands over to the playbook. It does
-# as little as possible on purpose.
+# Ansible can't configure a machine that doesn't have Ansible, so this gets
+# Python + Ansible in place and then hands over to the playbook. It does as
+# little as possible on purpose.
 #
-# Run on a freshly reset laptop:
-#   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jojomo96/local-dev-setup/main/bootstrap.sh)"
+# Two ways to run it, both fine:
+#
+#   1. One command on a bare laptop — downloads this script's text, runs it
+#      from memory, and it clones the repo itself:
+#
+#        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jojomo96/local-dev-setup/main/bootstrap.sh)"
+#
+#   2. Clone first, if you'd rather see what you're running:
+#
+#        git clone https://github.com/jojomo96/local-dev-setup.git
+#        cd local-dev-setup && ./bootstrap.sh
+#
+# Everything after this script is declarative and re-runnable (make check,
+# make bootstrap, ansible-playbook main.yml).
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
 # HTTPS, not SSH: this must clone on a freshly wiped machine that has no keys
 # and no GitHub auth yet. That works only while the repo is PUBLIC — if you
-# make it private, this clone fails and you'll need to authenticate first.
+# make it private, authenticate first and use the clone-first path above.
 REPO_URL="https://github.com/jojomo96/local-dev-setup.git"
 CLONE_DIR="${DEVSETUP_DIR:-$HOME/local-dev-setup}"
 
@@ -21,7 +33,9 @@ say()  { printf '\n\033[1;34m==>\033[0m \033[1m%s\033[0m\n' "$*"; }
 warn() { printf '    \033[1;33m!\033[0m %s\n' "$*"; }
 die()  { printf '    \033[1;31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 
-# ── 1. Xcode Command Line Tools (gives us git and python3) ──────────────────
+# ── 1. Xcode Command Line Tools ─────────────────────────────────────────────
+# Provides git (needed to clone, below) and python3 (needed for the venv in
+# step 3). A no-op if your work machine ships these already.
 if [[ "$(uname -s)" == "Darwin" ]]; then
   if ! xcode-select -p >/dev/null 2>&1; then
     say "Installing Xcode Command Line Tools"
@@ -30,19 +44,23 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     exit 1
   fi
 fi
+command -v git >/dev/null || die "git not found"
 
-command -v git >/dev/null || die "git not found and Xcode CLT is installed — unexpected."
-
-# ── 2. Get the repo ─────────────────────────────────────────────────────────
-# When curl-piped, $0 isn't a file in the repo, so clone first and re-exec.
+# ── 2. Make sure we're running from inside a clone ──────────────────────────
+# Piped from curl, this script has no file on disk: BASH_SOURCE is unset, so
+# SELF_DIR won't contain main.yml. In that case clone the repo and re-exec
+# from there. Run from an existing clone, this whole block is skipped.
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-/nonexistent}")" 2>/dev/null && pwd || echo "")"
 if [[ -z "$SELF_DIR" || ! -f "$SELF_DIR/main.yml" ]]; then
-  say "Fetching the setup repo"
+  say "No repo around this script — fetching it"
   if [[ -d "$CLONE_DIR/.git" ]]; then
+    echo "    updating existing clone at $CLONE_DIR"
     git -C "$CLONE_DIR" pull --ff-only
   else
+    echo "    cloning into $CLONE_DIR"
     git clone "$REPO_URL" "$CLONE_DIR"
   fi
+  # Re-run from the clone, where main.yml and tasks/ exist.
   exec /bin/bash "$CLONE_DIR/bootstrap.sh" "$@"
 fi
 cd "$SELF_DIR"
@@ -57,15 +75,13 @@ cd "$SELF_DIR"
 #   - deleting one directory removes it completely
 #
 # Homebrew and mise don't exist yet — the playbook installs them — so the
-# system python3 from the Xcode CLT is all we have to work with. That's fine:
-# this venv only has to live long enough to run the playbook once. After that,
-# uv-tools.list installs ansible-core properly into ~/.local/bin and the
-# Makefile prefers that copy.
+# system python3 is all we have. That's fine: this venv only has to live long
+# enough to run the playbook once. After that, uv-tools.list installs
+# ansible-core into ~/.local/bin and the Makefile prefers that copy.
 VENV="$HOME/.local/share/devsetup/bootstrap-venv"
 ANSIBLE="$VENV/bin/ansible-playbook"
 GALAXY="$VENV/bin/ansible-galaxy"
 
-# Prefer an already-installed Ansible (uv-managed, from a previous run).
 if command -v ansible-playbook >/dev/null 2>&1; then
   ANSIBLE="$(command -v ansible-playbook)"
   GALAXY="$(command -v ansible-galaxy)"

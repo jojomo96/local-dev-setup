@@ -95,10 +95,14 @@ through the ones that apply to you instead of guessing.
 3. [ ] Install a browser, then KeePassXC, then **restore your `.kdbx` file** and
        confirm it opens. Everything below needs credentials out of it, so do not
        continue until this works.
-4. [ ] Bootstrap this repo:
+4. [ ] Bootstrap this repo. Needs no credentials while the repo is public; it
+       clones itself into `~/local-dev-setup`:
        ```sh
        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jojomo96/local-dev-setup/main/bootstrap.sh)"
        ```
+       Save that line as a note in KeePass — on a bare laptop you'll otherwise
+       be retyping it from the GitHub web UI. Or clone manually:
+       `git clone https://github.com/jojomo96/local-dev-setup.git && cd local-dev-setup && ./bootstrap.sh`
 5. [ ] **GitHub auth** — not needed to clone or bootstrap (this repo is public
        and `bootstrap.sh` clones over HTTPS). You need it the first time you
        want to *push* a change back, e.g. after adding a package to the
