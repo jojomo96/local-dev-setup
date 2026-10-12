@@ -17,6 +17,29 @@
     path: "{{ homebrew_prefix }}/bin/brew"
   register: brew_binary
 
+- name: Check for passwordless sudo
+  # The Homebrew installer needs sudo, and Ansible can't answer a password
+  # prompt. bootstrap.sh installs Homebrew in your terminal for that reason;
+  # this path only works where sudo needs no password (e.g. CI runners).
+  ansible.builtin.command:
+    cmd: sudo -n true
+  register: passwordless_sudo
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: not brew_binary.stat.exists
+
+- name: Explain how to install Homebrew when sudo needs a password
+  ansible.builtin.fail:
+    msg: >-
+      Homebrew is not installed at {{ homebrew_prefix }} and installing it
+      needs sudo, which Ansible cannot prompt for. Run ./bootstrap.sh (it
+      installs Homebrew interactively first), or install Homebrew from
+      https://brew.sh, then re-run the playbook.
+  when:
+    - not brew_binary.stat.exists
+    - passwordless_sudo.rc != 0
+
 - name: Install Homebrew
   # The official installer is idempotent but slow, so it only runs when brew
   # is genuinely absent. NONINTERACTIVE stops it waiting on a keypress.

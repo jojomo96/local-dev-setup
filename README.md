@@ -75,7 +75,7 @@ gh auth login     # only needed the first time you push a change back
 ## Layout
 
 ```
-bootstrap.sh          the ONLY imperative code: CLT check, venv + Ansible, hand over
+bootstrap.sh          the ONLY imperative code: CLT check, Homebrew, venv + Ansible, hand over
 main.yml              the playbook
 group_vars/all.yml    single place to configure this machine
 requirements.yml      Ansible collections

@@ -65,7 +65,25 @@ if [[ -z "$SELF_DIR" || ! -f "$SELF_DIR/main.yml" ]]; then
 fi
 cd "$SELF_DIR"
 
-# ── 3. Ansible, in a throwaway venv ────────────────────────────────────────
+# ── 3. Homebrew ─────────────────────────────────────────────────────────────
+# Installed here, not by the playbook, because it needs sudo once to create
+# its prefix and Ansible can't ask for a password: its workers run detached
+# from your terminal, so sudo has nowhere to prompt and the installer's
+# NONINTERACTIVE mode demands passwordless sudo. Priming sudo here, in your
+# terminal, lets the installer's `sudo -n` checks pass on the same tty.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  if [[ "$(uname -m)" == "arm64" ]]; then BREW_PREFIX=/opt/homebrew; else BREW_PREFIX=/usr/local; fi
+  if [[ ! -x "$BREW_PREFIX/bin/brew" ]]; then
+    say "Installing Homebrew"
+    echo "    It needs sudo once to create $BREW_PREFIX — enter your macOS login password."
+    sudo -v || die "sudo failed — Homebrew must be installed by an admin user"
+    NONINTERACTIVE=1 /bin/bash -c \
+      "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    [[ -x "$BREW_PREFIX/bin/brew" ]] || die "Homebrew install failed — see output above"
+  fi
+fi
+
+# ── 4. Ansible, in a throwaway venv ────────────────────────────────────────
 # Why a venv and not `pip install --user`:
 #   - venv is in the standard library, so there is nothing to install first
 #     (pipx would itself need pip --user, moving the problem one layer down)
@@ -74,8 +92,8 @@ cd "$SELF_DIR"
 #   - it cannot collide with any other Python tool's dependencies
 #   - deleting one directory removes it completely
 #
-# Homebrew and mise don't exist yet — the playbook installs them — so the
-# system python3 is all we have. That's fine: this venv only has to live long
+# mise doesn't exist yet — the playbook installs it — so the system python3
+# is all we have. That's fine: this venv only has to live long
 # enough to run the playbook once. After that, uv-tools.list installs
 # ansible-core into ~/.local/bin and the Makefile prefers that copy.
 VENV="$HOME/.local/share/devsetup/bootstrap-venv"
@@ -101,22 +119,22 @@ fi
 
 [[ -x "$ANSIBLE" ]] || die "ansible-playbook not usable at $ANSIBLE"
 
-# ── 4. Collections ──────────────────────────────────────────────────────────
+# ── 5. Collections ──────────────────────────────────────────────────────────
 # ansible.cfg sets collections_path=./collections, so these land in the repo
 # and are shared by whichever ansible binary runs later.
 say "Installing Ansible collections"
 "$GALAXY" install -r requirements.yml
 
-# ── 5. Hand over to the playbook ────────────────────────────────────────────
+# ── 6. Hand over to the playbook ────────────────────────────────────────────
 say "Running the playbook"
 echo "    Everything from here is declarative and re-runnable."
 echo
 
-# --ask-become-pass only when a task actually needs root. Nothing currently
-# does, so this stays unprivileged; add --ask-become-pass if that changes.
+# No --ask-become-pass: the one step that needed root (installing Homebrew)
+# ran above, in this terminal. Keep the playbook unprivileged.
 "$ANSIBLE" main.yml "$@"
 
-# ── 6. Point at the permanent install ──────────────────────────────────────
+# ── 7. Point at the permanent install ──────────────────────────────────────
 if [[ "$ANSIBLE" == "$VENV/bin/ansible-playbook" ]] \
   && [[ -x "$HOME/.local/bin/ansible-playbook" ]]; then
   say "Bootstrap venv no longer needed"
