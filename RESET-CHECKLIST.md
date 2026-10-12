@@ -83,8 +83,19 @@ through the ones that apply to you instead of guessing.
       checklist is complete; it is the only real undo.
 
 ### Final step
+- [ ] ⚠️ **Set `git_user_name` and `git_user_email` in `group_vars/all.yml`.**
+      They are empty by default, which means the new laptop gets no git identity
+      and every `git commit` fails with "Author identity unknown". One line each,
+      and it has to be committed *before* you wipe.
+- [ ] Run `make prefs-save` one last time, so Rectangle's shortcuts in the repo
+      match what you're actually using.
+- [ ] `make lint` and `make test` — catch a broken playbook now, not on a
+      machine with no working shell.
 - [ ] `git add -A && git commit && git push` in this repo, and verify on GitHub
       that `Brewfile`, `dotfiles/` and `mise.toml` are all there.
+- [ ] **Check CI is green** on the pushed commit. The macOS job runs the real
+      playbook twice and asserts nothing changes on the second run. This is the
+      only end-to-end proof the setup works before you depend on it.
 - [ ] Confirm `secrets.env` and `captured/` are **not** in the pushed tree.
 - [ ] Sign out of iCloud, Find My, and the App Store; deauthorise licensed apps.
 
@@ -95,17 +106,24 @@ through the ones that apply to you instead of guessing.
 1. [ ] macOS Setup Assistant, sign in to Apple ID, run Software Update to completion.
 2. [ ] **Enable FileVault** (System Settings → Privacy & Security) before putting
        any credentials back on the machine.
-3. [ ] Install a browser, then KeePassXC, then **restore your `.kdbx` file** and
-       confirm it opens. Everything below needs credentials out of it, so do not
-       continue until this works.
-4. [ ] Bootstrap this repo. Needs no credentials while the repo is public; it
-       clones itself into `~/local-dev-setup`:
+3. [ ] **Bootstrap this repo. This is the big one and it needs no credentials**
+       — the repo is public and `bootstrap.sh` clones over HTTPS:
        ```sh
        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/jojomo96/local-dev-setup/main/bootstrap.sh)"
        ```
-       Save that line as a note in KeePass — on a bare laptop you'll otherwise
-       be retyping it from the GitHub web UI. Or clone manually:
+       Save that line as a note in KeePass — on a bare laptop your only other
+       route to it is retyping the URL in a fresh browser. Or clone manually:
        `git clone https://github.com/jojomo96/local-dev-setup.git && cd local-dev-setup && ./bootstrap.sh`
+
+       It takes a while and does all of this unattended:
+       Xcode CLT → Homebrew → every app and CLI in `Brewfile` → oh-my-zsh →
+       dotfile symlinks (`.zshrc`, `.zshenv`, `.gitconfig`, mise config) →
+       mise runtimes, Go tooling and uv Python tools → k9s skins and
+       per-cluster colours → Rectangle shortcuts → krew plugins, helm repos,
+       pnpm globals → macOS system preferences.
+4. [ ] **Open a new terminal.** The shell config only applies to new sessions.
+       KeePassXC is now installed (it's in the Brewfile), so **restore your
+       `.kdbx` file** and confirm it opens — everything below needs it.
 5. [ ] **SSH keys — manual, by design.** The playbook does not create keys and
        does not write `~/.ssh/config`. Hardware-backed keys can't be scripted:
        a Secure Enclave key is created by Secretive, and a FIDO2 key needs the
@@ -163,11 +181,22 @@ through the ones that apply to you instead of guessing.
        and fresh short-lived credentials over copying long-lived keys across.
        Verify with `kubectl config get-contexts`.
 9. [ ] Fill in `~/.config/devsetup/secrets.env` with the **rotated** values.
-10. [ ] `make doctor` — resolve every failure before you start working.
-11. [ ] Sign in to Slack, Docker Hub, JetBrains; re-enable IDE settings sync.
-12. [ ] Re-add VS Code extensions: `cat captured/vscode-extensions.txt | xargs -n1 code --install-extension`
-13. [ ] Re-install krew plugins from `captured/krew-plugins.txt`.
-14. [ ] Set up Time Machine on the new install.
+       Better: leave it empty and use `stackit auth login` for short-lived
+       tokens, or `direnv` scoped to the one project that needs S3 keys.
+10. [ ] `make doctor` — resolve every failure before you start working. It
+       checks for brew shadowing a mise tool on PATH, duplicate declarations,
+       and credentials leaking into the repo.
+11. [ ] Sign in to Slack and JetBrains Toolbox; re-enable JetBrains Settings
+       Sync. Note GoLand comes from Toolbox, not Homebrew — and Rectangle
+       comes from company MDM, so wait for those rather than installing them.
+12. [ ] `make clean-venv` — removes the throwaway Python venv that
+       `bootstrap.sh` used before uv existed. Purely tidying.
+13. [ ] Set up Time Machine on the new install.
+
+**Already automated, nothing to do:** krew plugins (`oidc-login`), helm repos,
+pnpm globals, k9s skins and per-cluster colours, Rectangle shortcuts, Go tools
+like `gopls`. These used to be manual steps in this list; the playbook handles
+them now. `captured/krew-plugins.txt` and friends are only a cross-check.
 
 ---
 
