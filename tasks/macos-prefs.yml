@@ -1,0 +1,90 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# GUI app preferences, via `defaults import`.
+#
+# Apps like Rectangle, AltTab and Ice keep everything in a macOS preferences
+# domain rather than a dotfile, so there's nothing to symlink. `defaults
+# export` dumps a domain to an XML plist (text, so it diffs in git) and
+# `defaults import` restores it.
+#
+# IMPORT RUNS ONCE PER MACHINE, guarded by a marker file. Two reasons not to
+# import on every run:
+#   - you'd lose any tweak made in the app's own UI on the next `make bootstrap`
+#   - the app rewrites its domain constantly (window positions, last-used
+#     state), so "has this domain got keys yet?" is not a usable test — apps
+#     write defaults the first time they launch
+#
+# Workflow: change settings in the app's UI, then `make prefs-save` to write
+# them back to the repo. The repo is a snapshot you refresh deliberately, not
+# a live mirror.
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Ensure the marker directory exists
+  ansible.builtin.file:
+    path: "{{ secrets_dir }}/prefs-imported"
+    state: directory
+    mode: "0755"
+
+- name: Check which preference domains the repo has a snapshot for
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/dotfiles/macos-prefs/{{ item }}.plist"
+  loop: "{{ macos_pref_domains | default([]) }}"
+  register: pref_snapshots
+  changed_when: false
+
+- name: Check which domains have already been imported on this machine
+  ansible.builtin.stat:
+    path: "{{ secrets_dir }}/prefs-imported/{{ item }}"
+  loop: "{{ macos_pref_domains | default([]) }}"
+  register: pref_markers
+  changed_when: false
+
+- name: Import GUI app preferences
+  # `defaults import` replaces the whole domain, so quitting the app first is
+  # recommended — a running app may flush its in-memory state back over this.
+  # The marker means this never fires twice, so a mid-run app restart is
+  # the worst case rather than a repeating fight.
+  ansible.builtin.command:
+    cmd: >-
+      defaults import {{ item.0.item }}
+      {{ playbook_dir }}/dotfiles/macos-prefs/{{ item.0.item }}.plist
+  loop: "{{ pref_snapshots.results | zip(pref_markers.results) | list }}"
+  loop_control:
+    label: "{{ item.0.item }}"
+  when:
+    - item.0.stat.exists          # repo has a snapshot
+    - not item.1.stat.exists      # and we haven't imported it here yet
+  changed_when: true
+  register: pref_import
+
+- name: Record that a domain was imported
+  ansible.builtin.file:
+    path: "{{ secrets_dir }}/prefs-imported/{{ item.0.item }}"
+    state: touch
+    mode: "0644"
+  loop: "{{ pref_snapshots.results | zip(pref_markers.results) | list }}"
+  loop_control:
+    label: "{{ item.0.item }}"
+  when:
+    - item.0.stat.exists
+    - not item.1.stat.exists
+  changed_when: false
+
+- name: Note which apps need restarting
+  ansible.builtin.debug:
+    msg: >-
+      Imported preferences for
+      {{ pref_import.results | default([]) | rejectattr('skipped', 'defined')
+         | map(attribute='item.0.item') | list }}.
+      Quit and reopen those apps for the settings to take effect.
+  when: pref_import.results | default([]) | rejectattr('skipped', 'defined') | list | length > 0
+
+- name: Report domains with no snapshot in the repo
+  ansible.builtin.debug:
+    msg: >-
+      No snapshot for {{ item.item }} — run `make prefs-save` on a machine
+      where it's configured.
+  loop: "{{ pref_snapshots.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not item.stat.exists

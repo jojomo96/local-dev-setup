@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>allowAnyShortcut</key>
+	<true/>
+	<key>center</key>
+	<dict/>
+	<key>centerHalf</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>8</integer>
+		<key>modifierFlags</key>
+		<integer>1572864</integer>
+	</dict>
+	<key>cycleSizesIsChanged</key>
+	<true/>
+	<key>firstFourth</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>123</integer>
+		<key>modifierFlags</key>
+		<integer>1572864</integer>
+	</dict>
+	<key>footprintAnimationDurationMultiplier</key>
+	<real>0.0</real>
+	<key>internalTilingNotified</key>
+	<true/>
+	<key>lastFourth</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>124</integer>
+		<key>modifierFlags</key>
+		<integer>1572864</integer>
+	</dict>
+	<key>launchOnLogin</key>
+	<true/>
+	<key>leftHalf</key>
+	<dict/>
+	<key>reflowTodo</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>45</integer>
+		<key>modifierFlags</key>
+		<integer>786432</integer>
+	</dict>
+	<key>rightHalf</key>
+	<dict/>
+	<key>selectedCycleSizes</key>
+	<integer>10</integer>
+	<key>stageSize</key>
+	<real>190.77897644042969</real>
+	<key>subsequentExecutionMode</key>
+	<integer>0</integer>
+	<key>toggleTodo</key>
+	<dict>
+		<key>keyCode</key>
+		<integer>11</integer>
+		<key>modifierFlags</key>
+		<integer>786432</integer>
+	</dict>
+</dict>
+</plist>

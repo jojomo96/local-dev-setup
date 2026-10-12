@@ -14,7 +14,7 @@ ANSIBLE_GALAXY := $(shell command -v ansible-galaxy 2>/dev/null \
 ANSIBLE_VAULT := $(shell command -v ansible-vault 2>/dev/null \
 	|| echo $(BOOTSTRAP_VENV)/bin/ansible-vault)
 
-.PHONY: help bootstrap deps pin-deps check brew dotfiles mise k9s plugins \
+.PHONY: help bootstrap deps pin-deps check brew dotfiles mise k9s prefs prefs-save plugins \
         identity macos doctor update capture lint test vault clean clean-venv
 
 help:
@@ -34,7 +34,11 @@ help:
 	@echo "    make update       Update mise tools, uv tools and brew"
 	@echo ""
 	@echo "  $(BOLD)Single areas$(RESET) (playbook tags)"
-	@echo "    make brew dotfiles mise k9s plugins identity macos"
+	@echo "    make brew dotfiles mise k9s prefs plugins identity macos"
+	@echo ""
+	@echo "  $(BOLD)GUI app settings$(RESET)"
+	@echo "    make prefs-save   Snapshot app prefs FROM this machine into the repo"
+	@echo "    make prefs        Restore them (once per machine)"
 	@echo ""
 	@echo "  $(BOLD)Maintenance$(RESET)"
 	@echo "    make deps         Install Ansible collections"
@@ -79,6 +83,15 @@ identity:
 
 k9s:
 	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags k9s
+
+prefs:
+	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags prefs
+
+# Snapshot GUI app settings FROM this machine INTO the repo. Separate playbook
+# so it can never run during a normal bootstrap — it writes the wrong way round.
+prefs-save:
+	@$(ANSIBLE_PLAYBOOK) save-prefs.yml
+	@echo "$(YELLOW)Review 'git diff dotfiles/macos-prefs/' before committing.$(RESET)"
 
 plugins:
 	@$(ANSIBLE_PLAYBOOK) $(PLAYBOOK) --tags plugins

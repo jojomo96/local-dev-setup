@@ -14,6 +14,7 @@ configure_omz: true
 configure_dotfiles: true
 configure_mise: true
 configure_k9s: true
+configure_prefs: true
 configure_plugins: true
 configure_identity: true
 configure_macos: true
@@ -58,6 +59,35 @@ dotfile_links:
 omz_custom_plugins:
   - name: zsh-bat
     repo: https://github.com/fdellwing/zsh-bat.git
+
+# ── GUI app preferences (macOS defaults domains) ────────────────────────────
+# Apps that store config in a preferences domain rather than a dotfile, so
+# there's nothing to symlink. `make prefs-save` exports each to
+# dotfiles/macos-prefs/<domain>.plist; the playbook imports it once per machine.
+#
+# This works for apps installed outside Homebrew — Rectangle comes from your
+# company's MDM, so only its settings are managed here, not the app itself.
+#
+# Find a running app's domain with:
+#   defaults domains | tr ',' '\n' | grep -i <appname>
+macos_pref_domains:
+  - com.knollsoft.Rectangle      # Rectangle (free). Rectangle Pro is
+                                 # com.knollsoft.Hookshot — swap if you use Pro.
+  # Candidates you also have installed:
+  # - com.lwouis.alt-tab-macos
+  # - com.jordanbaird.Ice
+
+# Keys removed from a snapshot after export. These are app state rather than
+# settings — Sparkle updater timestamps, window geometry, menu bar positions —
+# and leaving them in means a spurious git diff on every `make prefs-save`.
+macos_pref_strip_keys:
+  - SULastCheckTime
+  - SUHasLaunchedBefore
+  - SUEnableAutomaticChecks
+  - lastVersion
+  - NSWindow Frame SUUpdateAlert
+  - NSWindow Frame SUUpdateAlert2
+  - NSStatusItem Preferred Position Item-0
 
 # ── k9s skins and per-context config ────────────────────────────────────────
 # On macOS k9s lives in ~/Library/Application Support/k9s (Go's user-config

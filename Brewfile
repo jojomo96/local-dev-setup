@@ -95,6 +95,10 @@ cask "spotify"
 cask "thunderbird"
 cask "gcloud-cli"         # Google Cloud CLI
 cask "proxy-audio-device" # virtual audio device for routing/recording
+# Rectangle is deliberately NOT here: your company's MDM installs it. Listing
+# it would make brew install a second copy, and `brew bundle --cleanup` would
+# then fight the MDM over which one owns /Applications/Rectangle.app.
+# Its *settings* are still managed — see macos_pref_domains in group_vars.
 
 # ── Undecided: uncomment what you want ──────────────────────────────────────
 # These are the heavy ones. Nothing installs them while they're commented.

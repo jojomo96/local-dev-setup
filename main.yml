@@ -64,6 +64,15 @@
       when: configure_mise | bool
       tags: [mise, tools]
 
+    # GUI app preferences. Imported once per machine; see the task file for
+    # why this isn't applied on every run.
+    - name: GUI app preferences
+      ansible.builtin.import_tasks: tasks/macos-prefs.yml
+      when:
+        - configure_prefs | bool
+        - ansible_system == 'Darwin'
+      tags: [prefs, dotfiles]
+
     # Config files only — needs nothing installed, so it runs alongside the
     # other dotfiles rather than waiting on mise.
     - name: k9s skins and context config

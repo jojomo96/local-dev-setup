@@ -1,0 +1,100 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# Snapshot GUI app preferences into the repo.
+#
+#   make prefs-save
+#
+# The reverse of tasks/macos-prefs.yml. Run this after changing settings in an
+# app's own UI, to write the current state back to dotfiles/macos-prefs/.
+#
+# Kept as a separate playbook rather than a tag so it can't run by accident
+# during a normal `make bootstrap` — it overwrites the repo's snapshots with
+# whatever is on this machine, which is the wrong direction on a fresh laptop.
+#
+# Reads macos_pref_domains from group_vars/all.yml, so the domain list exists
+# in exactly one place.
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Save GUI app preferences to the repo
+  hosts: local
+  gather_facts: true
+
+  tasks:
+    - name: Fail early if not on macOS
+      ansible.builtin.fail:
+        msg: "`defaults` only exists on macOS."
+      when: ansible_system != 'Darwin'
+
+    - name: Ensure the snapshot directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/dotfiles/macos-prefs"
+        state: directory
+        mode: "0755"
+
+    - name: Check which domains exist on this machine
+      ansible.builtin.command:
+        cmd: "defaults read {{ item }}"
+      loop: "{{ macos_pref_domains | default([]) }}"
+      register: domain_check
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Warn about domains that don't exist here
+      ansible.builtin.debug:
+        msg: >-
+          No preferences found for {{ item.item }} — is the app installed and
+          has it been launched at least once? Skipping.
+      loop: "{{ domain_check.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.rc != 0
+
+    - name: Export preferences to the repo
+      ansible.builtin.command:
+        cmd: >-
+          defaults export {{ item.item }}
+          {{ playbook_dir }}/dotfiles/macos-prefs/{{ item.item }}.plist
+      loop: "{{ domain_check.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.rc == 0
+      changed_when: true
+
+    - name: Convert to XML so the file diffs readably in git
+      # `defaults export` preserves the SOURCE format, which for most apps is
+      # a binary plist (starts with "bplist00") — an opaque blob in git with no
+      # usable diff. plutil rewrites it as XML; `defaults import` reads either.
+      ansible.builtin.command:
+        cmd: >-
+          plutil -convert xml1
+          {{ playbook_dir }}/dotfiles/macos-prefs/{{ item.item }}.plist
+      loop: "{{ domain_check.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.rc == 0
+      changed_when: true
+
+    - name: Strip volatile keys that would churn on every save
+      # Sparkle updater timestamps, window geometry and status-item positions
+      # change constantly and have nothing to do with your settings. Left in,
+      # they produce a spurious diff on every `make prefs-save`.
+      # `plutil -remove` exits non-zero when the key is absent, which is fine.
+      ansible.builtin.command:
+        cmd: >-
+          plutil -remove '{{ item.1 }}'
+          {{ playbook_dir }}/dotfiles/macos-prefs/{{ item.0.item }}.plist
+      loop: "{{ domain_check.results | product(macos_pref_strip_keys | default([])) | list }}"
+      loop_control:
+        label: "{{ item.0.item }} : {{ item.1 }}"
+      when: item.0.rc == 0
+      changed_when: false
+      failed_when: false
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg:
+          - "Snapshots written to dotfiles/macos-prefs/ as XML."
+          - "Review `git diff dotfiles/macos-prefs/` before committing — plists"
+          - "can still hold state you don't care about. Add any such keys to"
+          - "macos_pref_strip_keys in group_vars/all.yml."
