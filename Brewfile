@@ -28,9 +28,12 @@ brew "gh"                 # GitHub CLI — also used for `gh auth login`
 brew "coreutils"          # GNU versions; macOS ships ancient BSD tools
 brew "curl"
 brew "wget"
-brew "openssh"
-brew "gnupg"              # commit signing
-brew "pinentry-mac"       # lets gpg prompt via the macOS keychain
+brew "openssh"            # required for FIDO2 hardware keys — see note below
+# gnupg + pinentry-mac are NOT installed: commit signing here uses an SSH key
+# (git's gpg.format=ssh), so there's no GPG keyring to manage. Uncomment only
+# if you need GPG for something else, e.g. verifying release signatures.
+# brew "gnupg"
+# brew "pinentry-mac"
 
 # ══ CLI: shell experience ════════════════════════════════════════════════════
 brew "zsh-syntax-highlighting"   # sourced by dotfiles/zsh/.zshrc
@@ -71,6 +74,10 @@ cask "iterm2"
 cask "rectangle"          # window snapping
 cask "raycast"            # spotlight replacement
 cask "keepassxc"          # password manager; ships keepassxc-cli for scripting
+cask "secretive"          # SSH keys in the Secure Enclave, gated by Touch ID
+# NOTE: brew "openssh" above is required for FIDO2/hardware keys (Token2,
+# YubiKey) — Apple's /usr/bin/ssh is built without libfido2, so
+# `ssh-keygen -t ed25519-sk` fails with it.
 
 # ══ Fonts ════════════════════════════════════════════════════════════════════
 cask "font-jetbrains-mono-nerd-font"   # nerd font: needed for powerline/k9s glyphs

@@ -28,6 +28,20 @@
     label: "{{ item.domain | default('NSGlobalDomain') }} : {{ item.key }}"
   notify: macos preferences changed
 
+- name: Apply per-application preferences
+  # Per-app settings override NSGlobalDomain for that app only. Used here to
+  # get hold-to-repeat in editors while keeping the accent menu (ö/ä/ü)
+  # everywhere else.
+  community.general.osx_defaults:
+    domain: "{{ item.domain }}"
+    key: "{{ item.key }}"
+    type: "{{ item.type }}"
+    value: "{{ item.value }}"
+    state: present
+  loop: "{{ macos_app_defaults | default([]) }}"
+  loop_control:
+    label: "{{ item.domain }} : {{ item.key }}"
+
 - name: Remind about settings that need a re-login
   ansible.builtin.debug:
     msg: >-

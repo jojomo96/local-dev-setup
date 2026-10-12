@@ -58,10 +58,28 @@ if have gh; then
 else
   warn "gh not installed"; (( WARNINGS++ ))
 fi
-if [[ "$(git config commit.gpgsign 2>/dev/null)" == "true" ]]; then
-  ok "commit signing enabled"
+
+# Report whatever keys exist rather than expecting one specific filename:
+# a Secure Enclave key lives in Secretive's agent and has no file at all.
+ssh_keys=$(find "$HOME/.ssh" -maxdepth 1 -name '*.pub' 2>/dev/null | wc -l | tr -d ' ')
+if [[ "${ssh_keys:-0}" -gt 0 ]]; then
+  ok "$ssh_keys SSH public key(s) in ~/.ssh"
 else
-  warn "commit signing not enabled (no GPG key imported yet?)"; (( WARNINGS++ ))
+  warn "no SSH key files in ~/.ssh (fine if you only use Secretive's agent)"
+  (( WARNINGS++ ))
+fi
+if [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
+  key_count=$(ssh-add -l 2>/dev/null | grep -c . || true)
+  [[ "${key_count:-0}" -gt 0 ]] \
+    && ok "ssh-agent has ${key_count} key(s) loaded" \
+    || warn "ssh-agent is running but holds no keys"
+fi
+# Not signing commits is a perfectly valid choice, so this is informational
+# rather than a warning — it would otherwise nag forever.
+if [[ "$(git config commit.gpgsign 2>/dev/null)" == "true" ]]; then
+  ok "commit signing enabled (format: $(git config gpg.format 2>/dev/null || echo openpgp))"
+else
+  info "commit signing off (set git_signing_ssh_key to enable)"
 fi
 
 # ── Secrets hygiene ────────────────────────────────────────────────────────

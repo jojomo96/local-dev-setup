@@ -28,6 +28,13 @@ homebrew_cleanup: true
 git_user_name: ""
 git_user_email: ""
 
+# Optional: sign commits with an SSH key (not GPG). Leave empty for no signing.
+# Set to the PUBLIC key path you want to sign with, e.g.
+#   git_signing_ssh_key: "~/.ssh/id_ed25519_sk.pub"
+# For a Secretive/Secure Enclave key, export its public key to a file first.
+# The same key must be added to GitHub as a *Signing* key, not an auth key.
+git_signing_ssh_key: ""
+
 # ── Dotfiles: repo path -> target in $HOME ──────────────────────────────────
 # Real files already at the destination are backed up with a timestamp before
 # being replaced by the symlink.
@@ -54,11 +61,19 @@ omz_custom_plugins:
 # Applied with community.general.osx_defaults: idempotent, and it tells you
 # which keys actually changed. Delete any line you disagree with.
 macos_defaults:
-  # Keyboard — the biggest quality-of-life win for a developer.
+  # Keyboard.
   - { key: KeyRepeat, type: int, value: 2 }            # fast repeat
   - { key: InitialKeyRepeat, type: int, value: 15 }
-  - { key: ApplePressAndHoldEnabled, type: bool, value: false }  # no accent menu
   - { key: AppleKeyboardUIMode, type: int, value: 3 }  # tab through dialogs
+
+  # ApplePressAndHoldEnabled stays TRUE globally: holding "o" to get ö/ü/ä is
+  # press-and-hold, and on an English keyboard that is the way to type German
+  # letters. Disabling it is a common "dev tweak" that silently removes that.
+  #
+  # The trade-off is real — press-and-hold and hold-to-repeat are mutually
+  # exclusive. So it is disabled PER APP below, only in editors and terminals
+  # where key repeat matters and you'd never type an umlaut.
+  - { key: ApplePressAndHoldEnabled, type: bool, value: true }
 
   # Text input — smart quotes and dashes corrupt code and YAML.
   - { key: NSAutomaticQuoteSubstitutionEnabled, type: bool, value: false }
@@ -88,18 +103,33 @@ macos_defaults:
   - { domain: com.apple.desktopservices, key: DSDontWriteNetworkStores, type: bool, value: true }
   - { domain: com.apple.desktopservices, key: DSDontWriteUSBStores, type: bool, value: true }
 
-  # Dock
-  - { domain: com.apple.dock, key: autohide, type: bool, value: true }
-  - { domain: com.apple.dock, key: autohide-delay, type: float, value: 0 }
-  - { domain: com.apple.dock, key: autohide-time-modifier, type: float, value: 0.15 }
+  # Dock — only the uncontroversial one. Nothing here touches `orientation`,
+  # so a left-hand dock stays left. autohide / tilesize / mru-spaces are
+  # personal layout choices, so they're left commented rather than imposed.
   - { domain: com.apple.dock, key: show-recents, type: bool, value: false }
-  - { domain: com.apple.dock, key: tilesize, type: int, value: 42 }
-  - { domain: com.apple.dock, key: mru-spaces, type: bool, value: false }
+  - { domain: com.apple.dock, key: autohide, type: bool, value: true }
+  # - { domain: com.apple.dock, key: autohide-delay, type: float, value: 0 }
+  # - { domain: com.apple.dock, key: autohide-time-modifier, type: float, value: 0.15 }
+  # - { domain: com.apple.dock, key: tilesize, type: int, value: 42 }
+  # - { domain: com.apple.dock, key: mru-spaces, type: bool, value: false }
 
   # Screenshots
   - { domain: com.apple.screencapture, key: location, type: string, value: "{{ ansible_env.HOME }}/Screenshots" }
   - { domain: com.apple.screencapture, key: disable-shadow, type: bool, value: true }
   - { domain: com.apple.screencapture, key: type, type: string, value: png }
+
+# ── Per-app overrides ───────────────────────────────────────────────────────
+# Disable press-and-hold only where you want hold-to-repeat and would never
+# type an umlaut. Everywhere else (Slack, browsers, Notes, Mail) keeps the
+# accent menu, so holding "o" still gives ö.
+#
+# Find an app's bundle id with:
+#   osascript -e 'id of app "GoLand"'
+macos_app_defaults:
+  - { domain: com.googlecode.iterm2, key: ApplePressAndHoldEnabled, type: bool, value: false }
+  - { domain: com.microsoft.VSCode, key: ApplePressAndHoldEnabled, type: bool, value: false }
+  - { domain: com.jetbrains.goland, key: ApplePressAndHoldEnabled, type: bool, value: false }
+  - { domain: com.apple.Terminal, key: ApplePressAndHoldEnabled, type: bool, value: false }
 
 # ── Paths ───────────────────────────────────────────────────────────────────
 mise_bin: "{{ ansible_env.HOME }}/.local/bin/mise"
