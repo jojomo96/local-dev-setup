@@ -18,8 +18,9 @@
 # you actually have, then move the keepers in here.
 # ──────────────────────────────────────────────────────────────────────────────
 
-# No taps needed: `brew bundle` is part of Homebrew core now, so the old
-# `tap "homebrew/bundle"` line is obsolete.
+# `brew bundle` is part of Homebrew core now, so the old `tap "homebrew/bundle"`
+# line is obsolete. This tap is required for the tap-qualified gcx formula below.
+tap "grafana/grafana"
 
 # ══ CLI: core ════════════════════════════════════════════════════════════════
 brew "git"
@@ -57,10 +58,24 @@ brew "make"
 brew "shellcheck"         # CI lints this repo's scripts with it
 brew "jd"                 # json diff
 brew "mkcert"             # local TLS certs
+# brew "wireshark"        # tshark CLI; pairs with the wireshark-app cask
+# brew "gemini-cli"       # 430M — largest formula on the old laptop
 brew "ipcalc"             # subnet maths
 brew "git-quick-stats"    # repo contribution summaries
+brew "nano"               # newer than the nano macOS ships
+brew "sql-migrate"        # Go database migrations
 # cmake/glm/glfw/nasm removed: that was the Vulkan toolchain, no longer needed.
 # golangci-lint is in mise.toml so it tracks the Go version — not here.
+# Dropped as leftovers: fish, pipx, brew-cask-completion, s3cmd, snyk-cli,
+# cocoapods. Dropped as mise duplicates: helm, k9s, krew, tflint,
+# terraform-docs, yq, python@3.12.
+
+# ══ Observability ════════════════════════════════════════════════════════════
+brew "grizzly"                  # Grafana dashboards-as-code
+brew "grafana/grafana/gcx"      # Grafana Cloud exporter (needs the tap above)
+# thanos (89M) left out — it's a Prometheus server component rather than a
+# laptop CLI. Uncomment if you actually query it locally.
+# brew "thanos"
 # NOTE: httpie, pre-commit, ruff, black, mypy, ipython and ansible are Python
 # tools and belong to uv — see uv-tools.list. Do not add them here.
 
@@ -78,6 +93,16 @@ cask "jordanbaird-ice"    # menu bar manager
 cask "grandperspective"   # visual disk usage
 cask "spotify"
 cask "thunderbird"
+cask "gcloud-cli"         # Google Cloud CLI
+cask "proxy-audio-device" # virtual audio device for routing/recording
+
+# ── Undecided: uncomment what you want ──────────────────────────────────────
+# These are the heavy ones. Nothing installs them while they're commented.
+# cask "mactex"           # multi-GB full LaTeX; `basictex` is far smaller
+# cask "wireshark-app"    # GUI; also needs brew "wireshark" (122M) for tshark
+# cask "headlamp"         # K8s GUI — k9s (via mise) covers the same job
+#
+# Dropped: flutter (no more mobile dev), lidanglesensor.
 
 # Added by this setup:
 cask "keepassxc"          # password manager; ships keepassxc-cli for scripting
