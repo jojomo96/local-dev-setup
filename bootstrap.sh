@@ -66,19 +66,21 @@ fi
 cd "$SELF_DIR"
 
 # ── 3. Homebrew ─────────────────────────────────────────────────────────────
-# Installed here, not by the playbook, because it needs sudo once to create
-# its prefix and Ansible can't ask for a password: its workers run detached
-# from your terminal, so sudo has nowhere to prompt and the installer's
-# NONINTERACTIVE mode demands passwordless sudo. Priming sudo here, in your
-# terminal, lets the installer's `sudo -n` checks pass on the same tty.
+# Installed here, not by the playbook, because it needs sudo to create its
+# prefix and Ansible can't ask for a password: its workers run detached from
+# your terminal, so sudo has nowhere to prompt.
+#
+# Run interactively on purpose. NONINTERACTIVE=1 makes the installer use
+# `sudo -n`, which only works with a cached sudo ticket — and managed Macs
+# often set timestamp_timeout=0, so a ticket primed a moment earlier is
+# already gone. Interactive mode lets sudo prompt whenever it needs to.
 if [[ "$(uname -s)" == "Darwin" ]]; then
   if [[ "$(uname -m)" == "arm64" ]]; then BREW_PREFIX=/opt/homebrew; else BREW_PREFIX=/usr/local; fi
   if [[ ! -x "$BREW_PREFIX/bin/brew" ]]; then
     say "Installing Homebrew"
-    echo "    It needs sudo once to create $BREW_PREFIX — enter your macOS login password."
-    sudo -v || die "sudo failed — Homebrew must be installed by an admin user"
-    NONINTERACTIVE=1 /bin/bash -c \
-      "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    echo "    It needs sudo to create $BREW_PREFIX — enter your macOS login password"
+    echo "    when asked (possibly more than once), and press RETURN to confirm."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     [[ -x "$BREW_PREFIX/bin/brew" ]] || die "Homebrew install failed — see output above"
   fi
 fi
