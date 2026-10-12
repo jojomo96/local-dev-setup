@@ -26,6 +26,12 @@ echo
 if have brew; then
   step "Homebrew"
 
+  # Stop `brew` auto-updating mid-capture. It prints a few hundred lines of
+  # "New Formulae"/"New Casks" announcing packages that are new in Homebrew's
+  # repos — nothing to do with this machine — which buries the actual output.
+  export HOMEBREW_NO_AUTO_UPDATE=1
+  export HOMEBREW_NO_ENV_HINTS=1
+
   # --installed-on-request = things YOU asked for, not pulled in as deps.
   # This is the right audit input; `brew list` would bury you in dependencies.
   brew leaves --installed-on-request > "$OUT/brew-formulae.txt" 2>/dev/null \
@@ -67,12 +73,32 @@ if have brew; then
 
     echo
     echo "# ══ CASKS (GUI apps) ══"
+    echo "# Cross-check against captured/app-usage.txt: an app you haven't"
+    echo "# opened in a year is one you don't need on the new laptop."
     while read -r c; do
       [[ -z "$c" ]] && continue
       printf '# cask "%s"\n' "$c"
     done < "$OUT/brew-casks.txt"
   } > "$REPO_ROOT/Brewfile.audit"
   ok "wrote Brewfile.audit — open it and uncomment the keepers"
+
+  # ── When did you last actually open these apps? ───────────────────────────
+  # The honest answer to "do I still need this". Spotlight tracks last-used
+  # dates; oldest first, so the dead weight floats to the top.
+  step "App usage dates (the real test for 'do I still use this?')"
+  {
+    echo "# Applications by last-used date, OLDEST FIRST."
+    echo "# Anything at the top you haven't touched in months: don't reinstall it."
+    echo "# '-' means Spotlight has no record of it ever being opened."
+    echo
+    for app in /Applications/*.app; do
+      [[ -e "$app" ]] || continue
+      used="$(mdls -raw -name kMDItemLastUsedDate "$app" 2>/dev/null)"
+      [[ -z "$used" || "$used" == "(null)" ]] && used="-"
+      printf '%s\t%s\n' "${used:0:10}" "$(basename "$app" .app)"
+    done | sort
+  } > "$OUT/app-usage.txt"
+  ok "captured/app-usage.txt"
 else
   warn "brew not found — skipping Homebrew capture"
 fi
